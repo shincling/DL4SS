@@ -36,10 +36,14 @@ class NNet(ModelInit):
                               input_shape=self.inp_fea_shape)(mix_fea_layer)
         # 全连接层
         output_mask_layer = TimeDistributed(Dense(self.out_shape[-1], activation='sigmoid'))(mix_fea_layer)
+        # output_mask_layer_2 = merge([output_mask_layer,-1], mode='mul', name='target_clean_spectrum')
+        # output_mask_layer_2 = merge([output_mask_layer_2,1], mode='sum', name='target_clean_spectrum')
+        output_mask_layer_2 = TimeDistributed(Dense(self.out_shape[-1], activation='sigmoid'))(mix_fea_layer)
         # output_clean = TimeDistributed(Dense(self.out_shape[-1]), name='target_clean_spectrum')(mix_fea_layer)
         output_clean = merge([output_mask_layer, mix_spec_layer], mode='mul', name='target_clean_spectrum')
+        output_clean_2 = merge([output_mask_layer_2,mix_spec_layer], mode='mul', name='target_clean_spectrum_2')
         # 注意，可以有多个输入，多个输出
-        auditory_model = Model(input=[mix_fea_inp, mix_spec_inp], output=[output_clean,output_clean])
+        auditory_model = Model(input=[mix_fea_inp, mix_spec_inp], output=[output_clean,output_clean_2])
 
         # 如果保存过模型的话，可以加载之前的权重继续跑
         if weights_path:

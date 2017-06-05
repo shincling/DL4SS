@@ -36,6 +36,7 @@ def get_feature(audio_list, min_mix=2, max_mix=2, batch_size=1):
     batch_input_fea = []
     batch_input_spec = []
     batch_target_spec = []
+    batch_target_spec_2 = []
     batch_count = 0
     while True:  # 无限制地生成训练样例，直到当前batch_size的list满了
 
@@ -68,7 +69,7 @@ def get_feature(audio_list, min_mix=2, max_mix=2, batch_size=1):
         # 开始随机选择说话人的语音进行混叠，加载到batch数据中
         # 先注释掉随机选择说话人，因为目前的算法有排列问题，后期加入说话人注意之后改为随机选择说话人语音
         # for spk in random.sample(speaker_audios.keys(), mix_k):
-        for spk in speaker_audios.keys():
+        for idx,spk in enumerate(speaker_audios.keys()):
             file_str = speaker_audios[spk].pop()
             if not speaker_audios[spk]:
                 del(speaker_audios[spk])  # 删除掉空的说话人
@@ -95,6 +96,9 @@ def get_feature(audio_list, min_mix=2, max_mix=2, batch_size=1):
             else:
                 # 注意：这里一定不可以改成 wav_mix += signal的形式，target_sig会被修改（地址传递）
                 wav_mix = wav_mix + signal  # 混叠后的语音
+                if idx==1:
+                    target_sig_2=signal
+
 
         # 以后可以考虑采用MFCC或GFCC特征做为输入
         feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
@@ -106,11 +110,14 @@ def get_feature(audio_list, min_mix=2, max_mix=2, batch_size=1):
         # 计算纯净语音的语谱图, STFTs for individual signals
         spec_clean = np.transpose(np.abs(librosa.core.spectrum.stft(target_sig, config.FRAME_LENGTH,
                                                                     config.FRAME_SHIFT, window=config.WINDOWS)))
+        spec_clean_2 = np.transpose(np.abs(librosa.core.spectrum.stft(target_sig_2, config.FRAME_LENGTH,
+                                                                    config.FRAME_SHIFT, window=config.WINDOWS)))
 
         # 加载到batch缓存中
         batch_input_fea.append(feature_mix)
         batch_input_spec.append(spec_mix)
         batch_target_spec.append(spec_clean)
+        batch_target_spec_2.append(spec_clean_2)
         batch_count += 1
 
         if batch_count == batch_size:
@@ -120,12 +127,14 @@ def get_feature(audio_list, min_mix=2, max_mix=2, batch_size=1):
             mix_input_spec = np.array(batch_input_spec).reshape((batch_size, ) + spec_mix.shape)
             # 目标语谱，target (batch_size, time_steps, spectrum_size)
             clean_target_spec = np.array(batch_target_spec).reshape((batch_size, ) + spec_clean.shape)
+            clean_target_spec_2 = np.array(batch_target_spec_2).reshape((batch_size, ) + spec_clean.shape)
             # 挂起生成器，等待调用next
             yield ({'input_mix_feature': mix_input_fea, 'input_mix_spectrum': mix_input_spec},
-                   {'target_clean_spectrum': clean_target_spec})
+                   {'target_clean_spectrum': clean_target_spec,'target_clean_spectrum_2':clean_target_spec_2})
             batch_input_fea = []
             batch_input_spec = []
             batch_target_spec = []
+            batch_target_spec_2 = []
             batch_count = 0
 
 if __name__ == "__main__":

@@ -111,6 +111,7 @@ def eval_separation(model, audio_list, epoch_num, log_file, min_mix=2, max_mix=2
 
             # 进行预测
             target_pred = model.predict({'input_mix_feature': mix_input_fea, 'input_mix_spectrum': mix_input_spec})
+            target_pred = target_pred if len(target_pred)==1 else target_pred[0]
             batch_idx = 0
             # 对预测结果进行评估
             for _pred_output in list(target_pred):
