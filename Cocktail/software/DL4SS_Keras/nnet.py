@@ -33,9 +33,9 @@ class NNet(ModelInit):
         mix_spec_inp = Input(shape=(self.inp_fea_len, self.inp_spec_dim), name='input_mix_spectrum')
         # bg_mask_inp = Input(shape=(self.inp_fea_len, self.inp_spec_dim), name='input_bg_mask')
         # inp_target_spk_shape (1)
-        target_spk_inp = Input(shape=(self.inp_spk_len, ), name='input_target_spk')
+        target_spk_inp = Input(shape=(self.inp_spk_len, ), name='input_target_spk') #这个应该就是说话人的id的数字
         # inp_clean_fea_shape (MaxLen(time), feature_dim)，不固定time_steps
-        clean_fea_inp = Input(shape=(None, self.inp_fea_dim), name='input_clean_feature')
+        clean_fea_inp = Input(shape=(None, self.inp_fea_dim), name='input_clean_feature') #这个是目标说话人的原始语音，在evaluate的时候应该是不用的
 
         mix_fea_layer = mix_fea_inp
         mix_spec_layer = mix_spec_inp
@@ -68,7 +68,7 @@ class NNet(ModelInit):
                                             merge_mode='concat')(clean_fea_layer)
         # 进行Pooling 抽取当前语音的特征向量
         # (None(batch), MaxLen(time), embed_dim) -> (None(batch), embed_dim)
-        spk_vector_layer = MeanPool(name='MeanPool')(clean_fea_layer)
+        spk_vector_layer = MeanPool(name='MeanPool')(clean_fea_layer) #shin:相当于mean了step，得到了声纹向量
         # 加载并更新到当前的 长时记忆单元中
         # [((None(batch), 1), ((None(batch), embed_dim))] -> (None(batch), spk_size, embed_dim)
         spk_life_long_memory_layer = SpkLifeLongMemory(self.spk_size, config.EMBEDDING_SIZE, unk_spk=config.UNK_SPK,
@@ -85,8 +85,8 @@ class NNet(ModelInit):
         # 进行Attention(Masking)计算
         # (None(batch), MaxLen(time), spec_dim)
         output_mask_layer = Attention(self.inp_fea_len, self.inp_spec_dim, config.EMBEDDING_SIZE,
-                                      mode='align', name='Attention')([mix_embedding_layer
-                                                                       , spk_memory_layer
+                                      mode='align', name='Attention')([mix_embedding_layer # 这是那个三维的mix语音
+                                                                       , spk_memory_layer # 这个是memory里得到的目标说话人的声纹
                                                                        # , memory_layer
                                                                        # , bg_mask_layer])
                                                                        ])
