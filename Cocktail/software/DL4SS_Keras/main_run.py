@@ -30,33 +30,33 @@ def main():
     weights_path = './_tmp_weights/ASAM_WSJ0_1_weight_00031.h5'
     weights_path = None
     dl4ss_model = nnet.NNet(_log_file, weights_path)
-    # if config.MODE == 1:
-    # dl4ss_model.train()
+    if config.MODE == 1:
+        dl4ss_model.train()
 
-    # elif (config.MODE == 2) and (weights_path is not None):
-    # 在训练好的模型上测试TEST
-    # print 'valid spk number: 2'
-    # _log_file.write('valid spk number: 2\n')
-    # dl4ss_model.predict(config.VALID_LIST, spk_num=2)
-    print 'test spk number: 2'
-    _log_file.write('test spk number: 2\n')
-    dl4ss_model.predict(config.TEST_LIST, spk_num=2)
-    # print 'tes spk number: 3'
-    # _log_file.write('test spk number: 3\n')
-    # dl4ss_model.predict(config.TEST_LIST, spk_num=3)
-    print 'test spk number: 2 with bg noise'
-    _log_file.write('test spk number: 2 with bg noise\n')
-    dl4ss_model.predict(config.TEST_LIST, spk_num=2, add_bgd_noise=True)
+    elif (config.MODE == 2) and (weights_path is not None):
+        # 在训练好的模型上测试TEST
+        # print 'valid spk number: 2'
+        # _log_file.write('valid spk number: 2\n')
+        # dl4ss_model.predict(config.VALID_LIST, spk_num=2)
+        print 'test spk number: 2'
+        _log_file.write('test spk number: 2\n')
+        dl4ss_model.predict(config.TEST_LIST, spk_num=2)
+        # print 'tes spk number: 3'
+        # _log_file.write('test spk number: 3\n')
+        # dl4ss_model.predict(config.TEST_LIST, spk_num=3)
+        print 'test spk number: 2 with bg noise'
+        _log_file.write('test spk number: 2 with bg noise\n')
+        dl4ss_model.predict(config.TEST_LIST, spk_num=2, add_bgd_noise=True)
 
-    # 在训练好的模型上测试UNK
-    # for supp_time in [0.25, 0.5, 1, 2, 4, 8, 16, 32]:
-    # for supp_time in [0.25, 0.5, 1, 2, 4, 8, 16, 32]:
-    #     print 'unk spk and supplemental wav span: %02d' % supp_time
-    #     _log_file.write('unk spk and supplemental wav span: %02d\n' % supp_time)
-    #     dl4ss_model.predict(config.UNK_LIST, spk_num=2, unk_spk=True, supp_time=supp_time)
-    # else:
-    #     print 'Wrong mode: %s' % config.MODE
-    #     _log_file.write('Wrong mode: %s\n' % config.MODE)
+        # 在训练好的模型上测试UNK
+        # for supp_time in [0.25, 0.5, 1, 2, 4, 8, 16, 32]:
+        # for supp_time in [0.25, 0.5, 1, 2, 4, 8, 16, 32]:
+        #     print 'unk spk and supplemental wav span: %02d' % supp_time
+        #     _log_file.write('unk spk and supplemental wav span: %02d\n' % supp_time)
+        #     dl4ss_model.predict(config.UNK_LIST, spk_num=2, unk_spk=True, supp_time=supp_time)
+        # else:
+        #     print 'Wrong mode: %s' % config.MODE
+        #     _log_file.write('Wrong mode: %s\n' % config.MODE)
     _log_file.close()
 
 if __name__ == "__main__":
