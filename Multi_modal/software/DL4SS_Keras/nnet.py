@@ -179,11 +179,11 @@ class NNet(ModelInit):
                     if dev_loss < lowest_dev_loss:
                         lowest_dev_loss = dev_loss
                         lowest_dev_epoch = epoch_num
-                        tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d.h5" \
+                        tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d_forImages.h5" \
                                                                                         % (epoch_num+1)
                         self.auditory_model.save_weights(tmp_weight_path)
                     if (epoch_num - lowest_dev_epoch >= 10) or (epoch_num == config.MAX_EPOCH-1):
-                        tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d.h5" \
+                        tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d_forImages.h5" \
                                                                                         % (lowest_dev_epoch+1)
                         self.auditory_model.load_weights(tmp_weight_path)
                         print ('Early stop at epoch: %05d' % (lowest_dev_epoch+1))
