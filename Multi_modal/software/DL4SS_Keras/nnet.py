@@ -2,7 +2,7 @@
 
 import time
 import config
-from keras.layers import Input, Bidirectional, LSTM, TimeDistributed, Dense, merge, Reshape, Embedding, Masking
+from keras.layers import Input, Bidirectional, LSTM, TimeDistributed, Dense, merge, Reshape, Embedding, Masking , Convolution2D, MaxPooling2D, Activation,Flatten
 from keras.models import Model
 from keras.optimizers import SGD, Nadam
 import keras.backend as K
@@ -70,13 +70,28 @@ class NNet(ModelInit):
         # (Batch,imagesize[0],imagesize[1]) -> (Batch,imageEmbedding)
         # TODO: 这块用来设计抽取图像特征所采用的网络
         # spk_vector_layer_forImage=image_net(clear_fea_layer)
+        # spk_vector_layer1=Convolution2D(4, 5, 5, border_mode='valid', input_shape=(1,config.ImageSize[0],config.ImageSize[1]))(clean_fea_layer)
+        clean_fea_layer=Reshape((1,config.ImageSize[0],config.ImageSize[1]))(clean_fea_layer)
+        spk_vector_layer1=Convolution2D(4, 5, 5, border_mode='valid')(clean_fea_layer)
+        spk_vector_layer1=Activation('relu')(spk_vector_layer1)
+        spk_vector_layer1=MaxPooling2D(pool_size=(2,2))(spk_vector_layer1)
+
+        spk_vector_layer2=Convolution2D(8, 3, 3, border_mode='valid')(spk_vector_layer1)
+        spk_vector_layer2=Activation('relu')(spk_vector_layer2)
+        spk_vector_layer2=MaxPooling2D(pool_size=(2,2))(spk_vector_layer2)
+
+        spk_vector_layer3=Convolution2D(16, 3, 3, border_mode='valid')(spk_vector_layer2)
+        spk_vector_layer3=Activation('relu')(spk_vector_layer3)
+        spk_vector_layer3=MaxPooling2D(pool_size=(2,2))(spk_vector_layer3)
+
+        spk_vector_flatten=Flatten()(spk_vector_layer3)
+        spk_vector_layer_image=Dense(config.EMBEDDING_SIZE,init='normal')(spk_vector_flatten)
 
 
-        spk_vector_layer = MeanPool(name='MeanPool')(clean_fea_layer) #shin:相当于mean了step，得到了声纹向量
         # 加载并更新到当前的 长时记忆单元中
         # [((None(batch), 1), ((None(batch), embed_dim))] -> (None(batch), spk_size, embed_dim)
         spk_life_long_memory_layer = SpkLifeLongMemory(self.spk_size, config.EMBEDDING_SIZE, unk_spk=config.UNK_SPK,
-                                                       name='SpkLifeLongMemory')([target_spk_layer, spk_vector_layer])
+                                                       name='SpkLifeLongMemory')([target_spk_layer, spk_vector_layer_image])
 
         # 抽取当前Batch下的记忆单元
         # (None(batch), embed_dim)
