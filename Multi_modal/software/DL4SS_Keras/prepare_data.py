@@ -10,6 +10,7 @@ import resampy
 import librosa
 import sys
 sys.path.append('./../../dataset/Mnist_data')
+print '\n\n Import Mnist from prepare_data.py'
 import Multi_modal.dataset.Mnist_data.input_data as mnist_input_data
 
 mnist=mnist_input_data.read_data_sets('./../../dataset/Mnist_data')
