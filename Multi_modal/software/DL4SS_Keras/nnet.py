@@ -36,7 +36,7 @@ class NNet(ModelInit):
         target_spk_inp = Input(shape=(self.inp_spk_len, ), name='input_target_spk') #这个应该就是说话人的id的数字
         # inp_clean_fea_shape (MaxLen(time), feature_dim)，不固定time_steps
         # clean_fea_inp = Input(shape=(None, self.inp_fea_dim), name='input_clean_feature') #这个是目标说话人的原始语音，在evaluate的时候应该是不用的
-        clean_fea_inp = Input(shape=config.ImageSize, name='input_rawimage') #输入的单个目标图片
+        clean_fea_inp = Input(shape=config.ImageSize, name='input_clean_feature') #输入的单个目标图片
 
         mix_fea_layer = mix_fea_inp
         mix_spec_layer = mix_spec_inp

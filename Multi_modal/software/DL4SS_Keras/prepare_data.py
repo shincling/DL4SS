@@ -180,8 +180,10 @@ def get_feature(audio_list, spk_to_idx, min_mix=2, max_mix=2, batch_size=1):
         # 混叠的语谱图，用于masking输出
         spec_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
                                                                   config.FRAME_SHIFT, window=config.WINDOWS)))
-        #　这里直接采用单个说话人图像的原始特征作为输入
-        feature_inp_clean=None
+
+        #　这里直接采用单个说话人图像的原始特征作为输入,从Ｍnist的训练数据中随机抽取一个。
+        idxs_for_spk=np.where(mnist.train.labels==(target_spk-1))[0]
+        feature_inp_clean=mnist.train.images[random.choice(idxs_for_spk)].reshape(config.ImageSize)
 
         # 计算纯净语音的语谱图, STFTs for individual signals
         spec_clean = np.transpose(np.abs(librosa.core.spectrum.stft(target_sig, config.FRAME_LENGTH,
