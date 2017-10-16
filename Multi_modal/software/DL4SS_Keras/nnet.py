@@ -35,16 +35,21 @@ class NNet(ModelInit):
         # inp_target_spk_shape (1)
         target_spk_inp = Input(shape=(self.inp_spk_len, ), name='input_target_spk') #这个应该就是说话人的id的数字
         # inp_clean_fea_shape (MaxLen(time), feature_dim)，不固定time_steps
-        clean_fea_inp = Input(shape=(None, self.inp_fea_dim), name='input_clean_feature') #这个是目标说话人的原始语音，在evaluate的时候应该是不用的
+        # clean_fea_inp = Input(shape=(None, self.inp_fea_dim), name='input_clean_feature') #这个是目标说话人的原始语音，在evaluate的时候应该是不用的
+        clean_fea_inp = Input(shape=config.ImageSize, name='input_rawimage') #输入的单个目标图片
 
         mix_fea_layer = mix_fea_inp
         mix_spec_layer = mix_spec_inp
-        # bg_mask_layer = bg_mask_inp
         target_spk_layer = target_spk_inp
-        if config.IS_LOG_SPECTRAL:
-            clean_fea_layer = MaskingGt(mask_value=np.log(np.spacing(1) * 2))(clean_fea_inp)
-        else:
-            clean_fea_layer = Masking(mask_value=0.)(clean_fea_inp)
+        clean_fea_layer = clean_fea_inp
+
+        '''由于图像不存在序列问题，不需要以下的一些mask'''
+        # if config.IS_LOG_SPECTRAL:
+        #     clean_fea_layer = MaskingGt(mask_value=np.log(np.spacing(1) * 2))(clean_fea_inp)
+        # else:
+        #     clean_fea_layer = Masking(mask_value=0.)(clean_fea_inp)
+
+        '''混合语音抽取的部分保持不变'''
         # clean_fea_layer = clean_fea_inp
         # 设置了两层 双向 LSTM, 抽取混叠语音的特征
         # (None(batch), MaxLen(time), feature_dim) -> (None(batch), None(time), hidden_dim)
@@ -62,12 +67,11 @@ class NNet(ModelInit):
         mix_embedding_layer = Reshape((self.inp_fea_len, self.inp_spec_dim, config.EMBEDDING_SIZE))(mix_embedding_layer)
 
         # 抽取目标说话人纯净语音的特征, 测试阶段为全0
-        # (None(batch), MaxLen(time), feature_dim) -> (None(batch), MaxLen(time), embed_dim)
-        for _layer in range(config.NUM_LAYERS):
-            clean_fea_layer = Bidirectional(LSTM(config.EMBEDDING_SIZE//2, return_sequences=True),
-                                            merge_mode='concat')(clean_fea_layer)
-        # 进行Pooling 抽取当前语音的特征向量
-        # (None(batch), MaxLen(time), embed_dim) -> (None(batch), embed_dim)
+        # (Batch,imagesize[0],imagesize[1]) -> (Batch,imageEmbedding)
+        # TODO: 这块用来设计抽取图像特征所采用的网络
+        # spk_vector_layer_forImage=image_net(clear_fea_layer)
+
+
         spk_vector_layer = MeanPool(name='MeanPool')(clean_fea_layer) #shin:相当于mean了step，得到了声纹向量
         # 加载并更新到当前的 长时记忆单元中
         # [((None(batch), 1), ((None(batch), embed_dim))] -> (None(batch), spk_size, embed_dim)

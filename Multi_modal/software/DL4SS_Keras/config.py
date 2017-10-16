@@ -83,6 +83,8 @@ ADD_BGD_NOISE = False
 BGD_NOISE_WAV = None
 BGD_NOISE_FILE = './../../dataset/BGD_150203_010_STR.CH1.wav'
 
+'''Params for Image'''
+ImageSize=(28,28)
 
 def load_bgd_wav(file_path):
     signal, rate = sf.read(file_path)  # signal 是采样值，rate 是采样频率

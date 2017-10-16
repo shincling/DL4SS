@@ -8,7 +8,20 @@ import config
 import soundfile as sf
 import resampy
 import librosa
-__author__ = 'jacoxu'
+import sys
+sys.path.append('./../../dataset/Mnist_data')
+import Multi_modal.dataset.Mnist_data.input_data as mnist_input_data
+
+mnist=mnist_input_data.read_data_sets('./../../dataset/Mnist_data')
+# train_mnist=[[] for i in range(10)]
+# for idx in range(mnist.train.num_examples):
+# for idx in range(50):
+#     train_mnist[mnist.train.labels[idx]].append(mnist.train.images[idx])
+# del mnist,mnist_input_data
+# print 'ok'
+# train_mnist[0]=np.float32(train_mnist[0])
+# for num,idx in enumerate(train_mnist):
+#     print 'number of {}'.format(idx),len(num)
 
 
 def get_idx(train_list, valid_list=None, test_list=None):
@@ -167,16 +180,9 @@ def get_feature(audio_list, spk_to_idx, min_mix=2, max_mix=2, batch_size=1):
         # 混叠的语谱图，用于masking输出
         spec_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
                                                                   config.FRAME_SHIFT, window=config.WINDOWS)))
-        # 计算纯净语音的特征，以后考虑采用MFCC或GFCC特征做为输入
-        if config.IS_LOG_SPECTRAL:
-            feature_inp_clean = np.log(np.transpose(np.abs(librosa.core.spectrum.stft(target_sig, config.FRAME_LENGTH,
-                                                                                      config.FRAME_SHIFT,
-                                                                                      window=config.WINDOWS)))
-                                       + np.spacing(1))
-        else:
-            feature_inp_clean = np.transpose(np.abs(librosa.core.spectrum.stft(target_sig, config.FRAME_LENGTH,
-                                                                               config.FRAME_SHIFT,
-                                                                               window=config.WINDOWS)))
+        #　这里直接采用单个说话人图像的原始特征作为输入
+        feature_inp_clean=None
+
         # 计算纯净语音的语谱图, STFTs for individual signals
         spec_clean = np.transpose(np.abs(librosa.core.spectrum.stft(target_sig, config.FRAME_LENGTH,
                                                                     config.FRAME_SHIFT, window=config.WINDOWS)))
@@ -206,6 +212,7 @@ def get_feature(audio_list, spk_to_idx, min_mix=2, max_mix=2, batch_size=1):
             target_input_spk = np.array(batch_input_spk, dtype=np.int32).reshape((batch_size, 1))
             # 目标特征，clean_input_fea (batch_size, time_steps, feature_dim)
             clean_input_fea = np.array(batch_input_clean_fea).reshape((batch_size, ) + feature_inp_clean.shape)
+            # 目标
             # 目标语谱，clean_target_spec (batch_size, time_steps, spectrum_dim)
             clean_target_spec = np.array(batch_target_spec).reshape((batch_size, ) + spec_clean.shape)
             # 挂起生成器，等待调用next
