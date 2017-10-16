@@ -145,6 +145,12 @@ class NNet(ModelInit):
             #     K.set_value(self.optimizer.lr, 0.5 * K.get_value(self.optimizer.lr))
             time_start = time.time()
             loss = 0.0
+            if 0 and epoch_num % 1 == 0:
+                # 评估验证集结果,不应该一开始就有,只是为了测试模型是不是work
+                dev_loss = predict.eval_loss_forImages(self.auditory_model, config.VALID_LIST, 'valid', epoch_num=epoch_num,
+                                             log_file=self.log_file, spk_to_idx=self.spk_to_idx,
+                                             batch_size=config.BATCH_SIZE_EVAL, unk_spk=config.UNK_SPK)
+
             for batch_size in range(config.EPOCH_SIZE):
                 inp, out = next(self.train_gen)
                 loss += self.auditory_model.train_on_batch(inp, out)
@@ -167,7 +173,7 @@ class NNet(ModelInit):
 
             if epoch_num % 1 == 0:
                 # 评估验证集结果
-                dev_loss = predict.eval_loss(self.auditory_model, config.VALID_LIST, 'valid', epoch_num=epoch_num,
+                dev_loss = predict.eval_loss_forImages(self.auditory_model, config.VALID_LIST, 'valid', epoch_num=epoch_num,
                                              log_file=self.log_file, spk_to_idx=self.spk_to_idx,
                                              batch_size=config.BATCH_SIZE_EVAL, unk_spk=config.UNK_SPK)
                 # # 评估测试集结果
@@ -192,7 +198,7 @@ class NNet(ModelInit):
 
     def predict(self, file_list, spk_num=3, unk_spk=False, supp_time=1, add_bgd_noise=False):
         # 评估验证集结果
-        predict.eval_separation(self.auditory_model, file_list, 'pred', epoch_num=0,
+        predict.eval_separation_forImages(self.auditory_model, file_list, 'pred', epoch_num=0,
                                 log_file=self.log_file, spk_to_idx=self.spk_to_idx,
                                 batch_size=1, spk_num=spk_num, unk_spk=unk_spk, supp_time=supp_time
                                 , add_bgd_noise=add_bgd_noise)
