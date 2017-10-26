@@ -28,7 +28,8 @@ def main():
     config.log_config(_log_file)
     # 初始化网络 initialize model
     weights_path = './_tmp_weights/WSJ0_weight_00021.h5'
-    weights_path = None
+    weights_path = './_tmp_weights/WSJ0_weight_00150_forImages.h5'
+    # weights_path = None
     dl4ss_model = nnet.NNet(_log_file, weights_path)
     if config.MODE == 1:
         print 'still train'

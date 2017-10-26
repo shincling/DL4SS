@@ -181,6 +181,9 @@ class NNet(ModelInit):
                 #                   log_file=self.log_file, spk_to_idx=self.spk_to_idx,
                 #                   batch_size=config.BATCH_SIZE_EVAL, unk_spk=config.UNK_SPK)
                 # 保存模型参数
+                tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d_forImages.h5" \
+                                                                                % (epoch_num+1)+time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                self.auditory_model.save_weights(tmp_weight_path)
                 if epoch_num >= start_ealy_stop:
                     if dev_loss < lowest_dev_loss:
                         lowest_dev_loss = dev_loss
@@ -188,7 +191,7 @@ class NNet(ModelInit):
                         tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d_forImages.h5" \
                                                                                         % (epoch_num+1)
                         self.auditory_model.save_weights(tmp_weight_path)
-                    if (epoch_num - lowest_dev_epoch >= 10) or (epoch_num == config.MAX_EPOCH-1):
+                    if (epoch_num - lowest_dev_epoch >= 200) or (epoch_num == config.MAX_EPOCH-1):
                         tmp_weight_path = config.TMP_WEIGHT_FOLDER + "/"+config.DATASET+"_weight_%05d_forImages.h5" \
                                                                                         % (lowest_dev_epoch+1)
                         self.auditory_model.load_weights(tmp_weight_path)
