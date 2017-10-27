@@ -40,17 +40,16 @@ MODE = 3
 # 3包括：AVA,GRID
 # 4包括：
 DATASET = 'GRID'
-valid_mode_dataset() #判断ＭＯＤＥ和数据集是否对应，不对就抛出异常
+valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
 # 训练文件列表
-TRAIN_LIST = './Dataset_Multi/'+MODE+'/'+DATASET+'/train_list'
+TRAIN_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/train_list'
 # 验证文件列表
-TRAIN_LIST = './Dataset_Multi/'+MODE+'/'+DATASET+'/valid_list'
+VALID_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/valid_list'
 # 测试文件列表
-TRAIN_LIST = './Dataset_Multi/'+MODE+'/'+DATASET+'/test_list'
-# 未登录列表
-TRAIN_LIST = './Dataset_Multi/'+MODE+'/'+DATASET+'/unk_list'
+TEST_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/test_list'
+# 未登录文件列表
+UNK_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/unk_list'
 
-open(TRAIN_LIST).read()
 # DNN/RNN隐层的维度 hidden units
 HIDDEN_UNITS = 16
 # DNN/RNN层数
