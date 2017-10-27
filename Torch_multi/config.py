@@ -33,7 +33,7 @@ def update_max_len(file_path_list, max_len):
         file_list = open(file_path)
         for line in file_list:
             line = line.strip().split()
-            if len(line) < 2:
+            if len(line) < 3:
                 print 'Wrong audio list file record in the line:', line
                 continue
             file_str = line[0]
@@ -114,7 +114,7 @@ MAX_MIX = 2
 # 设置训练/开发/验证模型的最大语音长度(秒)
 MAX_LEN = 5
 MAX_LEN = FRAME_RATE*MAX_LEN
-MAX_LEN = update_max_len([TRAIN_LIST, VALID_LIST, TEST_LIST, UNK_LIST], MAX_LEN)
+MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
 # 帧长
 WINDOWS = FRAME_LENGTH
 # 训练模型权重的目录
