@@ -25,94 +25,6 @@ def valid_mode_dataset():
     if MODE==4:
         print 'Top-down Query.'
 
-# 判断是否加载
-HAS_INIT_CONFIG = False
-MAT_ENG = []
-# External configuration file
-CONFIG_FILE = './config.cfg'
-# 日志记录，Record log into this file, such as dl4ss_output.log_20170303_110305
-LOG_FILE_PRE = './dl4ss_output.log'
-# mode=1 纯净语音刺激, 2 图片刺激, 3 视频刺激, 4 top-down概念刺激
-MODE = 3
-# 数据集
-# 1包括：THCHS-30 或者 WSJ0, TIMIT做为模型调试
-# 2包括：ＭNIST
-# 3包括：AVA,GRID
-# 4包括：
-DATASET = 'GRID'
-valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
-# 训练文件列表
-TRAIN_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/train_list'
-# 验证文件列表
-VALID_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/valid_list'
-# 测试文件列表
-TEST_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/test_list'
-# 未登录文件列表
-UNK_LIST = './Dataset_Multi/'+str(MODE)+'/'+DATASET+'/unk_list'
-
-# DNN/RNN隐层的维度 hidden units
-HIDDEN_UNITS = 16
-# DNN/RNN层数
-NUM_LAYERS = 1
-# Embedding大小
-EMBEDDING_SIZE = 20
-# 是否丰富数据
-AUGMENT_DATA = False
-# set the max epoch of training
-MAX_EPOCH = 5
-# epoch size
-EPOCH_SIZE = 20
-# batch size
-BATCH_SIZE = 2
-# 评估的batch size
-BATCH_SIZE_EVAL = 10
-# feature frame rate
-FRAME_RATE = 8000
-# 帧时长(ms)
-FRAME_LENGTH = int(0.032 * FRAME_RATE)
-# 帧移(ms)
-FRAME_SHIFT = int(0.016 * FRAME_RATE)
-# 是否shuffle_batch
-SHUFFLE_BATCH = True
-# 设定最小混叠说话人数，Minimum number of mixed speakers for training
-MIN_MIX = 2
-# 设定最大混叠说话人数，Maximum number of mixed speakers for training
-MAX_MIX = 2
-# 设置训练/开发/验证模型的最大语音长度(秒)
-MAX_LEN = 5
-# 帧长
-WINDOWS = FRAME_LENGTH
-# 临时文件的输出目录
-TMP_PRED_WAV_FOLDER = '_tmp_pred_wavs'
-# 训练模型权重的目录
-TMP_WEIGHT_FOLDER = '_tmp_weights'
-# 未登录说话人, False: 由说话人提取记忆，True: 进行语音抽取，# TODO NONE: 有相似度计算确定是否进行语音更新
-# 更新，UNK_SPK用spk idx=0替代
-UNK_SPK = False
-# 未登录说话人语音的最大额外条数
-UNK_SPK_SUPP = 10
-START_EALY_STOP = 0
-# 特征Spectral of Log Spectral
-IS_LOG_SPECTRAL = False
-# DB_THRESHOLD = 40  # None
-# 添加背景噪音（Str）
-ADD_BGD_NOISE = False
-BGD_NOISE_WAV = None
-BGD_NOISE_FILE = './../../dataset/BGD_150203_010_STR.CH1.wav'
-
-'''Params for Image'''
-ImageSize=(28,28)
-
-def load_bgd_wav(file_path):
-    signal, rate = sf.read(file_path)  # signal 是采样值，rate 是采样频率
-    if len(signal.shape) > 1:
-        signal = signal[:, 0]
-    if rate != FRAME_RATE:
-        # 如果频率不是设定的频率则需要进行转换
-        signal = resampy.resample(signal, rate, FRAME_RATE, filter='kaiser_fast')
-    return signal
-
-
 def update_max_len(file_path_list, max_len):
     tmp_max_len = 0
     # 用于搜集不同语音的长度
@@ -142,6 +54,100 @@ def update_max_len(file_path_list, max_len):
         #这里就是所有的speech的长度找出最大的和这个比，最大不能超过23秒这个。
         max_len = tmp_max_len
     return max_len
+
+
+
+# 判断是否加载
+HAS_INIT_CONFIG = False
+MAT_ENG = []
+# External configuration file
+CONFIG_FILE = './config.cfg'
+# 日志记录，Record log into this file, such as dl4ss_output.log_20170303_110305
+LOG_FILE_PRE = './dl4ss_output.log'
+# mode=1 纯净语音刺激, 2 图片刺激, 3 视频刺激, 4 top-down概念刺激
+MODE = 3
+# 数据集
+# 1包括：THCHS-30 或者 WSJ0, TIMIT做为模型调试
+# 2包括：ＭNIST
+# 3包括：AVA,GRID
+# 4包括：
+DATASET = 'GRID'
+valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
+aim_path='./Dataset_Multi/'+str(MODE)+'/'+DATASET
+# 训练文件列表
+TRAIN_LIST = aim_path+'/train_list'
+# 验证文件列表
+VALID_LIST = aim_path+'/valid_list'
+# 测试文件列表
+TEST_LIST = aim_path+'/test_list'
+# 未登录文件列表
+UNK_LIST = aim_path+'/unk_list'
+
+# DNN/RNN隐层的维度 hidden units
+HIDDEN_UNITS = 16
+# DNN/RNN层数
+NUM_LAYERS = 1
+# Embedding大小
+EMBEDDING_SIZE = 100
+# 是否丰富数据
+AUGMENT_DATA = False
+# set the max epoch of training
+MAX_EPOCH = 50
+# epoch size
+EPOCH_SIZE = 20
+# batch size
+BATCH_SIZE = 2
+# 评估的batch size
+BATCH_SIZE_EVAL = 10
+# feature frame rate
+FRAME_RATE = 8000
+# 帧时长(ms)
+FRAME_LENGTH = int(0.032 * FRAME_RATE)
+# 帧移(ms)
+FRAME_SHIFT = int(0.016 * FRAME_RATE)
+# 是否shuffle_batch
+SHUFFLE_BATCH = True
+# 设定最小混叠说话人数，Minimum number of mixed speakers for training
+MIN_MIX = 2
+# 设定最大混叠说话人数，Maximum number of mixed speakers for training
+MAX_MIX = 2
+# 设置训练/开发/验证模型的最大语音长度(秒)
+MAX_LEN = 5
+MAX_LEN = FRAME_RATE*MAX_LEN
+MAX_LEN = update_max_len([TRAIN_LIST, VALID_LIST, TEST_LIST, UNK_LIST], MAX_LEN)
+# 帧长
+WINDOWS = FRAME_LENGTH
+# 训练模型权重的目录
+TMP_WEIGHT_FOLDER = aim_path+'/_tmp_weights'
+# 未登录说话人, False: 由说话人提取记忆，True: 进行语音抽取，# TODO NONE: 有相似度计算确定是否进行语音更新
+# 更新，UNK_SPK用spk idx=0替代
+UNK_SPK = False
+# 未登录说话人语音的最大额外条数
+UNK_SPK_SUPP = 10
+START_EALY_STOP = 0
+# 特征Spectral of Log Spectral
+IS_LOG_SPECTRAL = False
+# DB_THRESHOLD = 40  # None
+# 添加背景噪音（Str）
+ADD_BGD_NOISE = False
+BGD_NOISE_WAV = None
+BGD_NOISE_FILE = 'Dataset_Multi/BGD_150203_010_STR.CH1.wav'
+
+if MODE==2:
+    '''Params for Image'''
+    ImageSize=(28,28)
+elif MODE==3:
+    '''Params for Video'''
+    VideoSize=(None,None)
+
+def load_bgd_wav(file_path):
+    signal, rate = sf.read(file_path)  # signal 是采样值，rate 是采样频率
+    if len(signal.shape) > 1:
+        signal = signal[:, 0]
+    if rate != FRAME_RATE:
+        # 如果频率不是设定的频率则需要进行转换
+        signal = resampy.resample(signal, rate, FRAME_RATE, filter='kaiser_fast')
+    return signal
 
 
 def init_config():
