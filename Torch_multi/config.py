@@ -149,6 +149,12 @@ def load_bgd_wav(file_path):
         signal = resampy.resample(signal, rate, FRAME_RATE, filter='kaiser_fast')
     return signal
 
+print '\n','*'*40,
+print 'All the params:',
+print '*'*40
+for i in locals().items():
+    print i if '__' not in str(i) else ''
+print '*'*100,'\n'
 
 def init_config():
     global HAS_INIT_CONFIG
