@@ -77,6 +77,7 @@ def prepare_data():
 
                     if k==0:#第一个作为目标
                         aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0]) #选定第一个作为目标说话人
+                        #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下
                         aim_spk_speech=signal
                         wav_mix=signal
                         aim_spk_vedio_path=data_path+'/'+spk+'/'+spk+'_speech/'+sample_name+'.wav'
@@ -84,21 +85,7 @@ def prepare_data():
                         wav_mix = wav_mix + signal  # 混叠后的语音
 
 
-                aim_spk_k_samples=[os.listdir(data_path+'/'+spk+'/'+spk+'_speech') for spk in aim_spk_k]
-                #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下
-
-                for spk in aim_spk_k: #对于此次混合的每一个说话人
-                    pass
-
-
-
-
-
-
-
-
-
-
+            yield
             print 'hhh'
         else:
             raise ValueError('No such dataset:{} for Video'.format(config.DATASET))
