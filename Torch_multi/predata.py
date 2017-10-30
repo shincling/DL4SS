@@ -6,7 +6,9 @@ import time
 import random
 import config
 import re
-
+import soundfile as sf
+import resampy
+import librosa
 
 def prepare_data():
     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
@@ -34,18 +36,53 @@ def prepare_data():
             all_spk=os.listdir(data_path)
             spk_samples_list={}
             while True:
+                mix_len=0
                 mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
                 aim_spk_k=random.sample(all_spk,mix_k)#本次混合的候选人
                 for k,spk in enumerate(aim_spk_k):
-                    #若是没有出现在整体上就注册进去,且第一次的时候读取所有的samples的名字
+
+                    #若是没有出现在整体列表内就注册进去,且第一次的时候读取所有的samples的名字
                     if spk not in spk_samples_list:
                         spk_samples_list[spk]=[]
                         for ss in os.listdir(data_path+'/'+spk+'/'+spk+'_speech'):
                             spk_samples_list[spk].append(ss[:-4]) #去掉.wav后缀
 
                     #这个时候这个spk已经注册了，所以直接从里面选就好了
-                    if k==0:#第一个作为目标吧
+                    sample_name=random.sample(spk_samples_list[spk],1)[0]
+                    spk_samples_list.pop(sample_name)#取出来一次之后，就把这个人去掉（避免一个batch里某段语音的重复出现）
+                    spk_speech_path=data_path+'/'+spk+'/'+spk+'_speech/'+sample_name+'.wav'
+
+                    signal, rate = sf.read(spk_speech_path)  # signal 是采样值，rate 是采样频率
+                    if len(signal.shape) > 1:
+                        signal = signal[:, 0]
+                    if rate != config.FRAME_RATE:
+                        # 如果频率不是设定的频率则需要进行转换
+                        signal = resampy.resample(signal, rate, config.FRAME_RATE, filter='kaiser_best')
+                    if signal.shape[0] > config.MAX_LEN:  # 根据最大长度裁剪
+                        signal = signal[:config.MAX_LEN]
+                    # 更新混叠语音长度
+                    if signal.shape[0] > mix_len:
+                        mix_len = signal.shape[0]
+
+                    signal -= np.mean(signal)  # 语音信号预处理，先减去均值
+                    signal /= np.max(np.abs(signal))  # 波形幅值预处理，幅值归一化
+
+                    # 如果需要augment数据的话，先进行随机shift, 以后考虑固定shift
+                    if config.AUGMENT_DATA:
+                        random_shift = random.sample(range(len(signal)), 1)[0]
+                        signal = signal[random_shift:] + signal[:random_shift]
+
+                    if signal.shape[0] < config.MAX_LEN:  # 根据最大长度用 0 补齐,
+                        signal=np.append(signal,np.zeros(config.MAX_LEN - signal.shape[0]))
+
+                    if k==0:#第一个作为目标
                         aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0]) #选定第一个作为目标说话人
+                        aim_spk_speech=signal
+                        wav_mix=signal
+                        aim_spk_vedio_path=data_path+'/'+spk+'/'+spk+'_speech/'+sample_name+'.wav'
+                    else:
+                        wav_mix = wav_mix + signal  # 混叠后的语音
+
 
                 aim_spk_k_samples=[os.listdir(data_path+'/'+spk+'/'+spk+'_speech') for spk in aim_spk_k]
                 #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下
