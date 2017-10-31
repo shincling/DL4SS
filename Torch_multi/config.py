@@ -4,7 +4,8 @@
     Configuration Profile
 """
 
-import matlab.engine
+# import matlab
+# import matlab.engine
 import time
 import ConfigParser
 import soundfile as sf
@@ -62,8 +63,6 @@ HAS_INIT_CONFIG = False
 MAT_ENG = []
 # External configuration file
 CONFIG_FILE = './config.cfg'
-# 日志记录，Record log into this file, such as dl4ss_output.log_20170303_110305
-LOG_FILE_PRE = './dl4ss_output.log'
 # mode=1 纯净语音刺激, 2 图片刺激, 3 视频刺激, 4 top-down概念刺激
 MODE = 3
 # 数据集
@@ -74,6 +73,8 @@ MODE = 3
 DATASET = 'GRID'
 valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
 aim_path='./Dataset_Multi/'+str(MODE)+'/'+DATASET
+# 日志记录，Record log into this file, such as dl4ss_output.log_20170303_110305
+LOG_FILE_PRE = aim_path+'/dl4ss_output.'+time.strftime('%Y-%m-%d %H:%M:%S')+'.log'
 # 训练文件列表
 TRAIN_LIST = aim_path+'/train_list'
 # 验证文件列表
@@ -96,7 +97,7 @@ MAX_EPOCH = 50
 # epoch size
 EPOCH_SIZE = 20
 # batch size
-BATCH_SIZE = 2
+BATCH_SIZE = 16
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate
@@ -162,8 +163,8 @@ def init_config():
         raise Exception("This config has been initialized")
     # 打开matlab引擎
     global MAT_ENG
-    MAT_ENG = matlab.engine.start_matlab()
-    print 'has opened the matlab engine'
+    # MAT_ENG = matlab.engine.start_matlab()
+    # print 'has opened the matlab engine'
     _config = ConfigParser.ConfigParser()
     cfg_file = open(CONFIG_FILE, 'r')
     _config.readfp(cfg_file)
