@@ -5,7 +5,7 @@ import time
 import config
 from predata import prepare_data
 
-
+np.random.seed(1)#设定种子
 # stout=sys.stdout
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
