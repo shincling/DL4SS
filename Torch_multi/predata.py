@@ -131,15 +131,24 @@ def prepare_data(train_or_test):
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                     config.FRAME_SHIFT, window=config.WINDOWS)))
                         aim_fea.append(aim_fea_clean)
-                        aim_spk_vedio_path=data_path+'/'+spk+'/'+spk+'_video/'+sample_name+'.mpg'
-                        extract_frames(aim_spk_vedio_path,sample_name)
-                        image_list = sorted(os.listdir(sample_name))
-                        for img in image_list:
-                            im=Image.open(img)
 
-                        shutil.rmtree(sample_name)
+                        #视频处理部分，为了得到query
+                        aim_spk_video_path=data_path+'/'+spk+'/'+spk+'_video/'+sample_name+'.mpg'
+                        extract_frames(aim_spk_video_path,sample_name) #抽取frames从第一个目标人的视频里,在本目录下生成一个临时的文件夹
+                        aim_video_imagename_list = sorted(os.listdir(sample_name)) #得到这个文件夹里的所有图像的名字
+                        aim_video_image_list=[]#用来存放这些抽出来帧的images的列表，后面转化为array
+                        for img in aim_video_imagename_list:
+                            im=Image.open(sample_name+'/'+img)
+                            pix=im.load()
+                            width,height=im.size
+                            im_array=np.zeros([width,height,3])
+                            for x in range(width):
+                                for y in range(height):
+                                    im_array[x,y]=pix[x,y]
+                            aim_video_image_list.append(im_array)
+                        query.append(aim_video_image_list)#添加到最终的query里，作为batch里的一个sample
 
-
+                        shutil.rmtree(sample_name)#删除临时文件夹
 
                     else:
                         wav_mix = wav_mix + signal  # 混叠后的语音
@@ -162,10 +171,10 @@ def prepare_data(train_or_test):
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
                     break
-
                 batch_idx+=1
 
-            print 'hhh'
+            print 'mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape:'
+            print mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
             return (mix_speechs,mix_feas,aim_fea,aim_spkid,query)
         else:
             raise ValueError('No such dataset:{} for Video'.format(config.DATASET))
