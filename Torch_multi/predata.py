@@ -11,6 +11,7 @@ import resampy
 import librosa
 import shutil
 import subprocess
+import Image
 
 def split_forTrainDevTest(spk_list,train_or_test):
     '''为了保证一个统一的训练和测试的划分标准，不得不用通用的一些方法来限定一下,
@@ -41,10 +42,12 @@ def extract_frames(video, dst):
         video_to_frames_command = ["ffmpeg",
                                    '-y',  # (optional) overwrite output file if it exists
                                    '-i', video,  # input file
-                                   '-vf', "scale=400:300",  # input file
+                                   '-vf', "scale={}:{}".format(config.VideoSize[0],config.VideoSize[1]),  # input file
+                                   '-r', str(config.VIDEO_RATE),  # samplling rate of the Video
                                    '-qscale:v', "2",  # quality for JPEG
-                                   '{0}/%06d.jpg'.format(dst)]
+                                   '{0}/%03d.jpg'.format(dst)]
         subprocess.call(video_to_frames_command, stdout=ffmpeg_log, stderr=ffmpeg_log)
+
 def prepare_data(train_or_test):
     '''
     :param train_or_test:type str, 'train','valid' or 'test'
@@ -129,7 +132,12 @@ def prepare_data(train_or_test):
                                                                                     config.FRAME_SHIFT, window=config.WINDOWS)))
                         aim_fea.append(aim_fea_clean)
                         aim_spk_vedio_path=data_path+'/'+spk+'/'+spk+'_video/'+sample_name+'.mpg'
-                        extract_frames(aim_spk_vedio_path,spk)
+                        extract_frames(aim_spk_vedio_path,sample_name)
+                        image_list = sorted(os.listdir(sample_name))
+                        for img in image_list:
+                            im=Image.open(img)
+
+                        shutil.rmtree(sample_name)
 
 
 

@@ -17,7 +17,7 @@ def main():
     print('go to model')
     print '*' * 80
 
-    data_generator=prepare_data()
+    data_generator=prepare_data('train')
 
 
 
