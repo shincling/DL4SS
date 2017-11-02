@@ -10,7 +10,31 @@ import soundfile as sf
 import resampy
 import librosa
 
-def prepare_data():
+def split_forTrainDevTest(spk_list,train_or_test):
+    '''为了保证一个统一的训练和测试的划分标准，不得不用通用的一些方法来限定一下,
+    这里采用的是用sorted先固定方法的排序，那么不论方法或者seed怎么设置，训练测试的划分标准维持不变，
+    也就是数据集会维持一直'''
+    length=len(spk_list)
+    # spk_list=sorted(spk_list,key=lambda x:(x[1]))#这个意思是按照文件名的第二个字符排序
+    # spk_list=sorted(spk_list)#这个意思是按照文件名的第1个字符排序,暂时采用这种
+    spk_list=sorted(spk_list,key=lambda x:(x[-1]))#这个意思是按照文件名的最后一个字符排序
+    #TODO:暂时用第一个字符排序，这个容易造成问题，可能第一个比较不一样的，这个需要注意胰腺癌
+    if train_or_test=='train':
+        return spk_list[:int(round(0.7*length))]
+    elif train_or_test=='valid':
+        return spk_list[(int(round(0.7*length))+1):int(round(0.8*length))]
+    elif train_or_test=='test':
+        return spk_list[(int(round(0.8*length))+1):]
+    else:
+        raise ValueError('Wrong input of train_or_test.')
+
+
+def prepare_data(train_or_test):
+    '''
+    :param train_or_test:type str, 'train','valid' or 'test'
+     其中把每个文件夹每个人的按文件名的排序的前70%作为训练，70-80%作为valid，最后20%作为测试
+    :return:
+    '''
     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
     mix_feas=[]#应该是bs,n_frames,n_fre这么多
     aim_fea=[]#应该是bs,n_frames,n_fre这么多
@@ -47,6 +71,9 @@ def prepare_data():
                         spk_samples_list[spk]=[]
                         for ss in os.listdir(data_path+'/'+spk+'/'+spk+'_speech'):
                             spk_samples_list[spk].append(ss[:-4]) #去掉.wav后缀
+
+                    #这个函数让spk_sanmples_list[spk]按照设定好的方式选择是train的部分还是test
+                    spk_samples_list[spk]=split_forTrainDevTest(spk_samples_list[spk],train_or_test)
 
                     #这个时候这个spk已经注册了，所以直接从里面选就好了
                     sample_name=random.sample(spk_samples_list[spk],1)[0]
@@ -121,3 +148,5 @@ def prepare_data():
 
     else:
         raise ValueError('No such Model:{}'.format(config.MODE))
+
+np.random.shuffle()
