@@ -21,7 +21,7 @@ def split_forTrainDevTest(spk_list,train_or_test):
     # spk_list=sorted(spk_list,key=lambda x:(x[1]))#这个意思是按照文件名的第二个字符排序
     # spk_list=sorted(spk_list)#这个意思是按照文件名的第1个字符排序,暂时采用这种
     spk_list=sorted(spk_list,key=lambda x:(x[-1]))#这个意思是按照文件名的最后一个字符排序
-    #TODO:暂时用第一个字符排序，这个容易造成问题，可能第一个比较不一样的，这个需要注意胰腺癌
+    #TODO:暂时用最后一个字符排序，这个容易造成问题，可能第一个比较不一样的，这个需要注意一下
     if train_or_test=='train':
         return spk_list[:int(round(0.7*length))]
     elif train_or_test=='valid':
