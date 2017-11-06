@@ -1,5 +1,8 @@
 #coding=utf8
 import sys
+import torch
+from torch import nn
+from torch.autograd import Variable
 import numpy as np
 import time
 import config
@@ -12,12 +15,14 @@ np.random.seed(1)#设定种子
 # logfile=config.LOG_FILE_PRE
 
 
-
 def main():
     print('go to model')
     print '*' * 80
 
     data_generator=prepare_data('train')
+    data_generator.next()
+    # data_generator.next()
+    # data_generator.next()
 
 
 
