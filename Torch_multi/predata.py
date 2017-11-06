@@ -165,17 +165,24 @@ def prepare_data(train_or_test):
                 mix_speechs[batch_idx,:]=wav_mix
                 mix_feas.append(feature_mix)
 
-                if batch_idx==config.BATCH_SIZE-1: #填满了一个batch
+                batch_idx+=1
+                print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
+                if batch_idx==config.BATCH_SIZE: #填满了一个batch
                     mix_feas=np.array(mix_feas)
                     aim_fea=np.array(aim_fea)
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
-                    break
-                batch_idx+=1
+                    print '\nspk_id_list:{}'.format(aim_spkid)
+                    print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape:'
+                    print mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
+                    yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query)
+                    batch_idx=0
+                    mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
+                    mix_feas=[]#应该是bs,n_frames,n_fre这么多
+                    aim_fea=[]#应该是bs,n_frames,n_fre这么多
+                    aim_spkid=[] #np.zeros(config.BATCH_SIZE)
+                    query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
 
-            print 'mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape:'
-            print mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
-            return (mix_speechs,mix_feas,aim_fea,aim_spkid,query)
         else:
             raise ValueError('No such dataset:{} for Video'.format(config.DATASET))
 
