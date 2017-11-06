@@ -52,7 +52,7 @@ def prepare_datasize(gen):
     data=gen.next()
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
-    return data[1].shape[1],data[1].shape[2],data[4].shape[1]
+    return data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1]
 
 def prepare_data(train_or_test):
     '''
@@ -179,9 +179,9 @@ def prepare_data(train_or_test):
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
                     print '\nspk_id_list:{}'.format(aim_spkid)
-                    print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape:'
-                    print mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
-                    yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query)
+                    print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape,all_spk_num:'
+                    print mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape,len(all_spk)
+                    yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query,len(all_spk))
                     batch_idx=0
                     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
                     mix_feas=[]#应该是bs,n_frames,n_fre这么多

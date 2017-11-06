@@ -17,7 +17,7 @@ np.random.seed(1)#设定种子
 class MULTI_MODAL(object):
     def __init__(self,datasize):
         print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
-        self.mix_speech_len,self.speech_fre,self.total_frames=datasize
+        self.mix_speech_len,self.speech_fre,self.total_frames,self.spk_num_total=datasize
 
 
 def main():
