@@ -19,10 +19,6 @@ class MULTI_MODAL(object):
         print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
         self.mix_speech_len,self.speech_fre,self.total_frames,self.spk_num_total=datasize
 
-
-
-
-
 def main():
     print('go to model')
     print '*' * 80
