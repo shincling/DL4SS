@@ -15,6 +15,9 @@ np.random.seed(1)#设定种子
 # logfile=config.LOG_FILE_PRE
 
 
+
+
+
 def main():
     print('go to model')
     print '*' * 80
