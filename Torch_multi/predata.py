@@ -52,7 +52,16 @@ def prepare_datasize(gen):
     data=gen.next()
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
+    #暂时输出的是：语音长度、语音频率数量、视频截断之后的长度
     return data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1]
+
+def prepare_data_fake(train_or_test):
+    while True:
+        out=[]
+        for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, 400, 300, 3)]:
+            out.append(np.random.random(i))
+        out.append(2)
+        yield out
 
 def prepare_data(train_or_test):
     '''
