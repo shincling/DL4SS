@@ -85,11 +85,11 @@ TEST_LIST = aim_path+'/test_list'
 UNK_LIST = aim_path+'/unk_list'
 
 # DNN/RNN隐层的维度 hidden units
-HIDDEN_UNITS = 16
+HIDDEN_UNITS = 300
 # DNN/RNN层数
-NUM_LAYERS = 1
-# Embedding大小
-EMBEDDING_SIZE = 100
+NUM_LAYERS = 2
+# Embedding大小,主要是给语音第三维那部分的
+EMBEDDING_SIZE = 50
 # 是否丰富数据
 AUGMENT_DATA = False
 # set the max epoch of training

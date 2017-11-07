@@ -59,7 +59,7 @@ def prepare_data_fake(train_or_test):
     while True:
         out=[]
         for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, 400, 300, 3)]:
-            out.append(np.random.random(i))
+            out.append(np.float32(np.random.random(i)))
         out.append(2)
         yield out
 
