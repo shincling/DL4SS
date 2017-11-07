@@ -15,6 +15,14 @@ np.random.seed(1)#设定种子
 # sys.stdout=log_file
 # logfile=config.LOG_FILE_PRE
 
+class VIDEO_QUERY(nn.Module):
+    def __init__(self,total_frames,video_size):
+        super(VIDEO_QUERY,self).__init__()
+        self.total_frames=total_frames
+        self.video_size=video_size
+
+    pass
+
 class MIX_SPEECH(nn.Module):
     def __init__(self,input_fre,mix_speech_len):
         super(MIX_SPEECH,self).__init__()
