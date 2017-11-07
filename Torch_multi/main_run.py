@@ -35,7 +35,7 @@ class MIX_SPEECH(nn.Module):
         x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
         out=F.tanh(self.Linear(x))
         out=out.view(config.BATCH_SIZE,self.mix_speech_len,self.input_fre,-1)
-        print out.size()
+        print 'Mix speech output shape:',out.size()
         return out
 
 
@@ -60,8 +60,15 @@ def main():
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
     datasize=prepare_datasize(data_generator)
-    multi_model=MULTI_MODAL(datasize,data_generator)
-    multi_model.build()
+    mix_speech_len,speech_fre,total_frames,spk_num_total,video_size=datasize
+    print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
+
+    # This part is to build the 3D mix speech embedding maps.
+    mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len)
+    print mix_hidden_layer_3d
+    mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data_generator.next()[1])))
+
+    # This part is to conduct the video inputs.
 
 
 
