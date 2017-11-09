@@ -8,20 +8,41 @@ import numpy as np
 import time
 import config
 from predata import prepare_data,prepare_datasize,prepare_data_fake
+import torchvision.models as models
+import myNet
 
 np.random.seed(1)#设定种子
+torch.manual_seed(1)
 # stout=sys.stdout
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
 # logfile=config.LOG_FILE_PRE
 
 class VIDEO_QUERY(nn.Module):
-    def __init__(self,total_frames,video_size):
+    def __init__(self,total_frames,video_size,spk_total_num):
         super(VIDEO_QUERY,self).__init__()
         self.total_frames=total_frames
         self.video_size=video_size
+        self.spk_total_num=spk_total_num
+        self.images_net=myNet.inception_v3(pretrained=True)#注意这个输出[2]才是最后的隐层状态
+        self.size_hidden_image=2048 #抽取的图像的隐层向量的长度,Inception_v3对应的是2048
+        self.lstm_layer=nn.LSTM(
+            input_size=self.size_hidden_image,
+            hidden_size=config.HIDDEN_UNITS,
+            num_layers=config.NUM_LAYERS,
+            batch_first=True,
+            bidirectional=True
+        )
+        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,self.spk_total_num)
 
-    pass
+    def forward(self, x):
+        assert x.size()[2]==3#判断是否不同通道在第三个维度
+        x=x.view(-1,3,self.video_size[0],self.video_size[1])
+        x_hidden_images=self.images_net(x)
+        x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
+        x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
+        out=F.tanh(x_lstm)
+        return out
 
 class MIX_SPEECH(nn.Module):
     def __init__(self,input_fre,mix_speech_len):
