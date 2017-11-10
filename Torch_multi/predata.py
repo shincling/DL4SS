@@ -156,10 +156,17 @@ def prepare_data(train_or_test):
                             im=Image.open(sample_name+'/'+img)
                             pix=im.load()
                             width,height=im.size
-                            im_array=np.zeros([width,height,3])
-                            for x in range(width):
-                                for y in range(height):
-                                    im_array[x,y]=pix[x,y]
+                            #此处用来决定三个通道维度上的先后顺序是x,y,3还是3,x,y
+                            if 1:
+                                im_array=np.zeros([width,height,3])
+                                for x in range(width):
+                                    for y in range(height):
+                                        im_array[x,y]=pix[x,y]
+                            else:
+                                im_array=np.zeros([3,width,height])
+                                for x in range(width):
+                                    for y in range(height):
+                                        im_array[:,x,y]=pix[x,y]
                             aim_video_image_list.append(im_array)
                         query.append(aim_video_image_list)#添加到最终的query里，作为batch里的一个sample
 

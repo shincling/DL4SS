@@ -115,7 +115,7 @@ MAX_MIX = 2
 # 设置训练/开发/验证模型的最大语音长度(秒)
 MAX_LEN = 5
 MAX_LEN = FRAME_RATE*MAX_LEN
-MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
+# MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
 # 帧长
 WINDOWS = FRAME_LENGTH
 # 训练模型权重的目录
