@@ -1,5 +1,5 @@
-import requests.packages.urllib3.util.ssl_
-requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL'
+# import requests.packages.urllib3.util.ssl_
+# requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL'
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
