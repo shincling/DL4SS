@@ -142,6 +142,7 @@ elif MODE==3:
     VideoSize=(400,300)
     NUM_ALL_FRAMES=25
     VIDEO_RATE=10
+    channel_first=True
 
 def load_bgd_wav(file_path):
     signal, rate = sf.read(file_path)  # signal 是采样值，rate 是采样频率

@@ -13,6 +13,8 @@ import shutil
 import subprocess
 import Image
 
+channel_first=config.channel_first
+
 def split_forTrainDevTest(spk_list,train_or_test):
     '''为了保证一个统一的训练和测试的划分标准，不得不用通用的一些方法来限定一下,
     这里采用的是用sorted先固定方法的排序，那么不论方法或者seed怎么设置，训练测试的划分标准维持不变，
@@ -58,8 +60,12 @@ def prepare_datasize(gen):
 def prepare_data_fake(train_or_test):
     while True:
         out=[]
-        for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, 400, 300, 3)]:
-            out.append(np.float32(np.random.random(i)))
+        if channel_first:
+            for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, 3, 400, 300)]:
+                out.append(np.float32(np.random.random(i)))
+        else:
+            for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, 400, 300, 3)]:
+                out.append(np.float32(np.random.random(i)))
         out.append(2)
         yield out
 
@@ -157,7 +163,7 @@ def prepare_data(train_or_test):
                             pix=im.load()
                             width,height=im.size
                             #此处用来决定三个通道维度上的先后顺序是x,y,3还是3,x,y
-                            if 1:
+                            if not channel_first:
                                 im_array=np.zeros([width,height,3])
                                 for x in range(width):
                                     for y in range(height):
