@@ -3,8 +3,8 @@
     The main function of DL4SS
     The python implementation of ICASSP2014 - Deep Learning for Monaural Speech Separation.
 """
-import matlab
-import matlab.engine
+# import matlab
+# import matlab.engine
 import numpy as np
 import config
 import time

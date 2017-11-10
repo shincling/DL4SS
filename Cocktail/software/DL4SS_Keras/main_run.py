@@ -27,10 +27,11 @@ def main():
     # 记录参数
     config.log_config(_log_file)
     # 初始化网络 initialize model
-    weights_path = './_tmp_weights/ASAM_WSJ0_1_weight_00031.h5'
+    weights_path = './_tmp_weights/WSJ0_weight_00021.h5'
     weights_path = None
     dl4ss_model = nnet.NNet(_log_file, weights_path)
     if config.MODE == 1:
+        print 'still train'
         dl4ss_model.train()
 
     elif (config.MODE == 2) and (weights_path is not None):
