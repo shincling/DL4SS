@@ -28,7 +28,8 @@ class MEMORY(object):
         self.init_memory(self.size,self.hidden_size)
 
     def init_memory(self):
-        self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+        # self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+        self.memory=[['Unknown_id',torch.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
 
     def get_all_spkid(self):
         l=[]
@@ -57,31 +58,39 @@ class MEMORY(object):
             raise KeyError('The spk_id:{} is not in the memory list.'.format(spk_id))
         return idx
 
+    #注意这几个new_vector可能会是Variable变量，所以得想好这个怎么运算
     def updata_vector(self,old,new,old_num):
         '''这里定义如何更新旧的记忆里的memory和新的memory
         '''
-        return (old+new)/2 #最简单的，靠近最新的样本
+        # return (old+new)/2 #最简单的，靠近最新的样本
+        return (Variable(old)+new)/2 #最简单的，靠近最新的样本
 
-    def add_speech(self,spk_id,new_vector):
+    def add_speech(self,spk_id,new_vector,return_final=True):
         idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
         old=self.get_speech_vector()
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
         self.memory[idx][1][:self.hidden_size]=final
+        if return_final:
+            return final
 
-    def add_image(self,spk_id,new_vector):
+    def add_image(self,spk_id,new_vector,return_final=True):
         idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
         old=self.get_speech_vector()
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
         self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final
+        if return_final:
+            return final
 
-    def add_video(self,spk_id,new_vector):
+    def add_video(self,spk_id,new_vector,return_final=True):
         idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
         old=self.get_speech_vector()
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
         self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final
+        if return_final:
+            return final
 
 
 
