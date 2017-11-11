@@ -18,6 +18,35 @@ torch.manual_seed(1)
 # sys.stdout=log_file
 # logfile=config.LOG_FILE_PRE
 
+class MEMORY(object):
+    def __init__(self,total_size,hidden_size,):
+        '''memory的设计很关键
+        目前想的是一个list,每个条目包括:id(str),voide_vector,image_vector,video_vector(这三个合成一个向量）,
+        age_vector（长度为3,整型，呼应voice\image\ video的样本个数）'''
+        self.size=total_size
+        self.hidden_size=hidden_size
+        self.init_memory(self.size,self.hidden_size)
+
+    def init_memory(self):
+        self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+
+    def get_all_spkid(self):
+        l=[]
+        for spk in self.memory:
+            l.append(spk[0])
+        return set(l)
+
+    def get_speech_vector(self):
+        return self.memory[2][:self.hidden_size]
+    def get_image_vector(self):
+        return self.memory[2][self.hidden_size:2*self.hidden_size]
+    def get_video_vector(self):
+        return self.memory[2][2*self.hidden_size:3*self.hidden_size]
+
+
+
+
+
 class VIDEO_QUERY(nn.Module):
     def __init__(self,total_frames,video_size,spk_total_num):
         super(VIDEO_QUERY,self).__init__()
@@ -106,6 +135,9 @@ def main():
     # query_video_output=query_video_layer(Variable(torch.from_numpy(data[4])))
 
 
+    hidden_size=(config.HIDDEN_UNITS)
+    # This part is to conduct the memory.
+    memory_unit=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
 
 
 if __name__ == "__main__":

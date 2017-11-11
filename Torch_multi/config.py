@@ -124,7 +124,7 @@ TMP_WEIGHT_FOLDER = aim_path+'/_tmp_weights'
 # 更新，UNK_SPK用spk idx=0替代
 UNK_SPK = False
 # 未登录说话人语音的最大额外条数
-UNK_SPK_SUPP = 10
+UNK_SPK_SUPP = 3
 START_EALY_STOP = 0
 # 特征Spectral of Log Spectral
 IS_LOG_SPECTRAL = False
