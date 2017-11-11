@@ -23,13 +23,15 @@ class MEMORY(object):
         '''memory的设计很关键
         目前想的是一个list,每个条目包括:id(str),voide_vector,image_vector,video_vector(这三个合成一个向量）,
         age_vector（长度为3,整型，呼应voice\image\ video的样本个数）'''
-        self.size=total_size
+        self.total_size=total_size
         self.hidden_size=hidden_size
-        self.init_memory(self.size,self.hidden_size)
+        self.init_memory()
 
     def init_memory(self):
         # self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        self.memory=[['Unknown_id',torch.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+        self.memory=[['Unknown_id',torch.ones(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+        # self.memory=[['Unknown_id',torch.range(1,3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+        # self.memory=[['Unknown_id',Variable(torch.zeros(3*self.hidden_size),requires_grad=True),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
 
     def get_all_spkid(self):
         l=[]
@@ -37,18 +39,30 @@ class MEMORY(object):
             l.append(spk[0])
         return set(l)
 
-    def get_speech_vector(self):
-        return self.memory[1][:self.hidden_size]
-    def get_image_vector(self):
-        return self.memory[1][self.hidden_size:2*self.hidden_size]
-    def get_video_vector(self):
-        return self.memory[1][2*self.hidden_size:3*self.hidden_size]
-    def get_speech_num(self):
-        return self.memory[2][0]
-    def get_image_num(self):
-        return self.memory[2][1]
-    def get_video_num(self):
-        return self.memory[2][2]
+    def get_speech_vector(self,spk_id,idx=None):
+        if not idx:
+            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        return self.memory[idx][1][:self.hidden_size]
+    def get_image_vector(self,spk_id,idx=None):
+        if not idx:
+            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        return self.memory[idx][1][self.hidden_size:2*self.hidden_size]
+    def get_video_vector(self,spk_id,idx=None):
+        if not idx:
+            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        return self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]
+    def get_speech_num(self,spk_id,idx=None):
+        if not idx:
+            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        return self.memory[idx][2][0]
+    def get_image_num(self,spk_id,idx=None):
+        if not idx:
+            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        return self.memory[idx][2][1]
+    def get_video_num(self,spk_id,idx=None):
+        if not idx:
+            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        return self.memory[idx][2][2]
 
     def find_spk(self,spk_id):
         for idx,spk in enumerate(self.memory):
@@ -60,17 +74,24 @@ class MEMORY(object):
 
     #注意这几个new_vector可能会是Variable变量，所以得想好这个怎么运算
     def updata_vector(self,old,new,old_num):
-        '''这里定义如何更新旧的记忆里的memory和新的memory
+        '''这里定义如何更新旧的记忆里的memory和新的memory,
+        必须是new(Variable)+常量的形式
         '''
         # return (old+new)/2 #最简单的，靠近最新的样本
-        return (Variable(old)+new)/2 #最简单的，靠近最新的样本
+        if isinstance(old,Variable):
+            pass
+        else:
+            old=Variable(old,requires_grad=False)
+        tmp=(old+new)/2 #最简单的，靠近最新的样本
+        final=tmp/tmp.data.norm(2)
+        return final
 
     def add_speech(self,spk_id,new_vector,return_final=True):
         idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
         old=self.get_speech_vector()
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][:self.hidden_size]=final
+        self.memory[idx][1][:self.hidden_size]=final.data #这里是FloatTensor的加法
         if return_final:
             return final
 
@@ -79,16 +100,16 @@ class MEMORY(object):
         old=self.get_speech_vector()
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final
+        self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final.data #这里是FloatTensor的加法
         if return_final:
             return final
 
     def add_video(self,spk_id,new_vector,return_final=True):
         idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector()
-        old_num=self.get_speech_num()
+        old=self.get_speech_vector(spk_id)
+        old_num=self.get_speech_num(spk_id)
         final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final
+        self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final.data #这里是FloatTensor的加法
         if return_final:
             return final
 
@@ -184,9 +205,13 @@ def main():
     # query_video_output=query_video_layer(Variable(torch.from_numpy(data[4])))
 
 
-    hidden_size=(config.HIDDEN_UNITS)
     # This part is to conduct the memory.
-    memory_unit=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
+    hidden_size=(config.HIDDEN_UNITS)
+    memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
+    print memory.get_all_spkid()
+    print memory.get_image_num('Unknown_id')
+    # print memory.get_video_vector('Unknown_id')
+    print memory.add_video('Unknown_id',Variable(torch.ones(300)))
 
 
 if __name__ == "__main__":
