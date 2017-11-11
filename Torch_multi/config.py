@@ -97,7 +97,7 @@ MAX_EPOCH = 50
 # epoch size
 EPOCH_SIZE = 20
 # batch size
-BATCH_SIZE = 5
+BATCH_SIZE = 2
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate
@@ -139,7 +139,7 @@ if MODE==2:
     ImageSize=(28,28)
 elif MODE==3:
     '''Params for Video'''
-    VideoSize=(400,300)
+    VideoSize=(299,299)
     NUM_ALL_FRAMES=25
     VIDEO_RATE=10
     channel_first=True

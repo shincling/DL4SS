@@ -41,8 +41,10 @@ class VIDEO_QUERY(nn.Module):
         x_hidden_images=self.images_net(x)
         x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
         x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
-        out=F.tanh(x_lstm)
-        return out
+        last_hidden=x_lstm[:,-1]
+        out=F.softmax(self.Linear(last_hidden)) #出处类别的概率,为什么很多都不加softmax的。。。
+        # out=self.Linear(last_hidden) #出处类别的概率,为什么很多都不加softmax的。。。
+        return out,last_hidden
 
 class MIX_SPEECH(nn.Module):
     def __init__(self,input_fre,mix_speech_len):
@@ -90,14 +92,18 @@ def main():
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
     datasize=prepare_datasize(data_generator)
     mix_speech_len,speech_fre,total_frames,spk_num_total,video_size=datasize
+    data=data_generator.next()
     print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
 
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len)
     print mix_hidden_layer_3d
-    mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data_generator.next()[1])))
+    # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
     # This part is to conduct the video inputs.
+    query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total)
+    print query_video_layer
+    # query_video_output=query_video_layer(Variable(torch.from_numpy(data[4])))
 
 
 
