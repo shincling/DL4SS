@@ -61,10 +61,10 @@ def prepare_data_fake(train_or_test):
     while True:
         out=[]
         if channel_first:
-            for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, 3, config.VideoSize[0], config.VideoSize[1])]:
+            for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, 3, config.VideoSize[0], config.VideoSize[1])]:
                 out.append(np.float32(np.random.random(i)))
         else:
-            for i in [(5, 17040),(5, 134, 129), (5, 134, 129), (5,), (5, 32, config.VideoSize[0], config.VideoSize[1], 3)]:
+            for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, config.VideoSize[0], config.VideoSize[1], 3)]:
                 out.append(np.float32(np.random.random(i)))
         out.append(2)
         yield out
