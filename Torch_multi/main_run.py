@@ -37,11 +37,51 @@ class MEMORY(object):
         return set(l)
 
     def get_speech_vector(self):
-        return self.memory[2][:self.hidden_size]
+        return self.memory[1][:self.hidden_size]
     def get_image_vector(self):
-        return self.memory[2][self.hidden_size:2*self.hidden_size]
+        return self.memory[1][self.hidden_size:2*self.hidden_size]
     def get_video_vector(self):
-        return self.memory[2][2*self.hidden_size:3*self.hidden_size]
+        return self.memory[1][2*self.hidden_size:3*self.hidden_size]
+    def get_speech_num(self):
+        return self.memory[2][0]
+    def get_image_num(self):
+        return self.memory[2][1]
+    def get_video_num(self):
+        return self.memory[2][2]
+
+    def find_spk(self,spk_id):
+        for idx,spk in enumerate(self.memory):
+            if spk_id==spk[0]:
+                break
+        else:
+            raise KeyError('The spk_id:{} is not in the memory list.'.format(spk_id))
+        return idx
+
+    def updata_vector(self,old,new,old_num):
+        '''这里定义如何更新旧的记忆里的memory和新的memory
+        '''
+        return (old+new)/2 #最简单的，靠近最新的样本
+
+    def add_speech(self,spk_id,new_vector):
+        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        old=self.get_speech_vector()
+        old_num=self.get_speech_num()
+        final=self.updata_vector(old,new_vector,old_num)
+        self.memory[idx][1][:self.hidden_size]=final
+
+    def add_image(self,spk_id,new_vector):
+        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        old=self.get_speech_vector()
+        old_num=self.get_speech_num()
+        final=self.updata_vector(old,new_vector,old_num)
+        self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final
+
+    def add_video(self,spk_id,new_vector):
+        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
+        old=self.get_speech_vector()
+        old_num=self.get_speech_num()
+        final=self.updata_vector(old,new_vector,old_num)
+        self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final
 
 
 
