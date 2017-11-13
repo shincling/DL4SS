@@ -5,6 +5,7 @@ from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
+import random
 import time
 import config
 from predata import prepare_data,prepare_datasize,prepare_data_fake
@@ -32,6 +33,13 @@ class MEMORY(object):
         self.memory=[['Unknown_id',torch.ones(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
         # self.memory=[['Unknown_id',torch.range(1,3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
         # self.memory=[['Unknown_id',Variable(torch.zeros(3*self.hidden_size),requires_grad=True),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+
+    def register_spklist(self,spk_list):
+        num=len(spk_list)
+        sample_list=random.sample(range(len(self.memory)),num)
+        for idx,sdx in enumerate(sample_list):
+            assert self.memory[sdx][0]=='Unknown_id'
+            self.memory[sdx][0]=spk_list[idx]
 
     def get_all_spkid(self):
         l=[]
@@ -216,8 +224,12 @@ def main():
     print('go to model')
     print '*' * 80
 
-    # data_generator=prepare_data('train')
-    data_generator=prepare_data_fake('train') #写一个假的数据生成，可以用来写模型先
+    spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
+    spk_all_list,dict1,dict2=spk_global_gen.next()
+    del spk_global_gen
+
+    # data_generator=prepare_data('once','train')
+    data_generator=prepare_data_fake(mode='once',train_or_test='train') #写一个假的数据生成，可以用来写模型先
 
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
@@ -229,7 +241,7 @@ def main():
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len)
     print mix_hidden_layer_3d
-    # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
+    mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
     # This part is to conduct the video inputs.
     query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total)
@@ -240,6 +252,8 @@ def main():
     # This part is to conduct the memory.
     hidden_size=(config.HIDDEN_UNITS)
     memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
+    memory.register_spklist(spk_all_list) #把spk_list注册进空的memory里面去
+
     print memory.get_all_spkid()
     print memory.get_image_num('Unknown_id')
     # print memory.get_video_vector('Unknown_id')
@@ -250,7 +264,7 @@ def main():
     '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
         for batch_idx in range(config.EPOCH_SIZE):
-            train_data_gen=prepare_data('train')
+            train_data_gen=prepare_data('once','train')
             train_data_size=prepare_datasize(train_data_gen)
             train_data=train_data_gen.next()
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
