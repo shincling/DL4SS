@@ -69,9 +69,11 @@ def prepare_data_fake(train_or_test):
         out.append(2)
         yield out
 
-def prepare_data(train_or_test):
+def prepare_data(mode,train_or_test):
     '''
-    :param train_or_test:type str, 'train','valid' or 'test'
+    :param
+    mode: type str, 'global' or 'once' ， global用来获取全局的spk_to_idx的字典，所有说话人的列表等等
+    train_or_test:type str, 'train','valid' or 'test'
      其中把每个文件夹每个人的按文件名的排序的前70%作为训练，70-80%作为valid，最后20%作为测试
     :return:
     '''
@@ -79,6 +81,7 @@ def prepare_data(train_or_test):
     mix_feas=[]#应该是bs,n_frames,n_fre这么多
     aim_fea=[]#应该是bs,n_frames,n_fre这么多
     aim_spkid=[] #np.zeros(config.BATCH_SIZE)
+    aim_spkname=[] #np.zeros(config.BATCH_SIZE)
     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
 
     #目标数据集的总data，底下应该存放分目录的文件夹，每个文件夹应该名字是sX
@@ -144,6 +147,7 @@ def prepare_data(train_or_test):
                         signal=np.append(signal,np.zeros(config.MAX_LEN - signal.shape[0]))
 
                     if k==0:#第一个作为目标
+                        aim_spkname.append(aim_spk_k[0])
                         aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下
                         aim_spk_speech=signal
@@ -200,15 +204,22 @@ def prepare_data(train_or_test):
                     aim_fea=np.array(aim_fea)
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
-                    print '\nspk_id_list:{}'.format(aim_spkid)
-                    print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape,all_spk_num:'
-                    print mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape,len(all_spk)
-                    yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query,len(all_spk))
+                    print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
+                    print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
+                    print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
+                    if mode=='global':
+                        dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
+                        dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}
+                        yield all_spk,dict_spk_to_idx,dict_idx_to_spk
+                    elif mode=='once':
+                        yield (mix_speechs,mix_feas,aim_fea,aim_spkname,query,len(all_spk))
+                        # yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query,len(all_spk))
                     batch_idx=0
                     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
                     mix_feas=[]#应该是bs,n_frames,n_fre这么多
                     aim_fea=[]#应该是bs,n_frames,n_fre这么多
                     aim_spkid=[] #np.zeros(config.BATCH_SIZE)
+                    aim_spkname=[]
                     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
 
         else:
