@@ -92,6 +92,8 @@ class MEMORY(object):
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
         self.memory[idx][1][:self.hidden_size]=final.data #这里是FloatTensor的加法
+        self.memory[idx][2][0]=self.memory[idx][2][0]+1
+
         if return_final:
             return final
 
@@ -101,6 +103,7 @@ class MEMORY(object):
         old_num=self.get_speech_num()
         final=self.updata_vector(old,new_vector,old_num)
         self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final.data #这里是FloatTensor的加法
+        self.memory[idx][2][1]=self.memory[idx][2][1]+1
         if return_final:
             return final
 
@@ -110,8 +113,18 @@ class MEMORY(object):
         old_num=self.get_speech_num(spk_id)
         final=self.updata_vector(old,new_vector,old_num)
         self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final.data #这里是FloatTensor的加法
+        self.memory[idx][2][2]=self.memory[idx][2][2]+1
         if return_final:
             return final
+
+    def find_idx_fromQueryVector(self,form,query_vecotr):
+        assert form in ['speech','image','video']
+        if form=='speech':
+            for idx,spk in self.memory:
+                if spk[2][0]:
+                    similarity=None
+                else:
+                    continue
 
 
 class ATTENTION(nn.Module):
@@ -240,8 +253,8 @@ def main():
             train_data_gen=prepare_data('train')
             train_data_size=prepare_datasize(train_data_gen)
             train_data=train_data_gen.next()
-            query_video_output=query_video_layer(Variable(torch.from_numpy(train_data[4])))
-            mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
+            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
+            query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])))
 
 
 
