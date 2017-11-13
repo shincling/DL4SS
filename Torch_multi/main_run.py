@@ -126,6 +126,7 @@ class MEMORY(object):
             return final
 
     def find_idx_fromQueryVector(self,form,query_vecotr):
+        #todo:这个重点考虑一下如何设计
         assert form in ['speech','image','video']
         if form=='speech':
             for idx,spk in self.memory:
@@ -146,6 +147,7 @@ class ATTENTION(nn.Module):
         self.Linear_3=nn.Linear(self.align_hidden_size,1,bias=False)
 
     def foward(self,mix_hidden,query):
+        #todo:这个要弄好，其实也可以直接抛弃memory来进行attention
         assert query.size()==(config.BATCH_SIZE,self.hidden_size)
         assert mix_hidden.size()[2]==self.hidden_size
         #mix_hidden：bs,max_len,hidden_size  query:bs,hidden_size
