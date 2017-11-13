@@ -139,10 +139,11 @@ class MEMORY(object):
 class ATTENTION(nn.Module):
     def __init__(self,hidden_size,mode='dot'):
         super(ATTENTION,self).__init__()
+        # self.mix_emb_size=config.EMBEDDING_SIZE
         self.hidden_size=hidden_size
         self.align_hidden_size=hidden_size #align模式下的隐层大小，暂时取跟原来一致的
         self.mode=mode
-        self.Linear_1=nn.Linear(hidden_size,self.align_hidden_size,bias=False)
+        self.Linear_1=nn.Linear(self.hidden_size,self.align_hidden_size,bias=False)
         self.Linear_2=nn.Linear(hidden_size,self.align_hidden_size,bias=False)
         self.Linear_3=nn.Linear(self.align_hidden_size,1,bias=False)
 
@@ -152,10 +153,21 @@ class ATTENTION(nn.Module):
         assert mix_hidden.size()[2]==self.hidden_size
         #mix_hidden：bs,max_len,hidden_size  query:bs,hidden_size
         if self.mode=='dot':
-            mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
+            # mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
             query=query.view(-1,self.hidden_size,1)
-            return torch.addbmm(torch.zero([1,1],mix_hidden,query))
+            dot=torch.addbmm(torch.zero([1,1],mix_hidden,query))
+            energy=dot.view(config.BATCH_SIZE,-1)
+            mask=F.sigmoid(energy)
+            return mask
+
         elif self.mode=='align':
+            mix_hidden=mix_hidden.view(-1,self.hidden_size)
+            mix_hidden=self.Linear_1(mix_hidden).view(config.BATCH_SIZE,-1,self.align_hidden_size)
+            query=self.Linear_2(query).view(-1,1,self.align_hidden_size) #bs,1,hidden
+            sum=F.tanh(mix_hidden+query)
+            #TODO:从这里开始做起
+
+
             pass
 
 
@@ -174,7 +186,8 @@ class VIDEO_QUERY(nn.Module):
             batch_first=True,
             bidirectional=True
         )
-        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,self.spk_total_num)
+        self.dense=nn.Linear(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE) #把输出的东西映射到embding_size的维度上
+        self.Linear=nn.Linear(config.EMBEDDING_SIZE,self.spk_total_num)
 
     def forward(self, x):
         assert x.size()[2]==3#判断是否不同通道在第三个维度
@@ -182,7 +195,7 @@ class VIDEO_QUERY(nn.Module):
         x_hidden_images=self.images_net(x)
         x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
         x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
-        last_hidden=x_lstm[:,-1]
+        last_hidden=self.dense(x_lstm[:,-1])
         out=F.softmax(self.Linear(last_hidden)) #出处类别的概率,为什么很多都不加softmax的。。。
         # out=self.Linear(last_hidden) #出处类别的概率,为什么很多都不加softmax的。。。
         return out,last_hidden
@@ -231,7 +244,7 @@ def main():
     del spk_global_gen
 
     # data_generator=prepare_data('once','train')
-    data_generator=prepare_data_fake(mode='once',train_or_test='train') #写一个假的数据生成，可以用来写模型先
+    data_generator=prepare_data_fake(train_or_test='train') #写一个假的数据生成，可以用来写模型先
 
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
@@ -248,7 +261,7 @@ def main():
     # This part is to conduct the video inputs.
     query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total)
     print query_video_layer
-    # query_video_output=query_video_layer(Variable(torch.from_numpy(data[4])))
+    # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
 
 
     # This part is to conduct the memory.
@@ -271,6 +284,10 @@ def main():
             train_data=train_data_gen.next()
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
             query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])))
+            att=ATTENTION(config.EMBEDDING_SIZE,'dot')
+            mask=att(mix_speech_hidden,query_video_hidden)#bs*max_len
+            predict_map=mask*train_data[1]
+            y_map=train_data[2]
 
 
 
