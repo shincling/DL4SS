@@ -118,14 +118,22 @@ class ATTENTION(nn.Module):
     def __init__(self,hidden_size,mode='dot'):
         super(ATTENTION,self).__init__()
         self.hidden_size=hidden_size
+        self.align_hidden_size=hidden_size #align模式下的隐层大小，暂时取跟原来一致的
         self.mode=mode
+        self.Linear_1=nn.Linear(hidden_size,self.align_hidden_size,bias=False)
+        self.Linear_2=nn.Linear(hidden_size,self.align_hidden_size,bias=False)
+        self.Linear_3=nn.Linear(self.align_hidden_size,1,bias=False)
 
     def foward(self,mix_hidden,query):
-        assert mix_hidden.size()==query.size()==(config.BATCH_SIZE,self.hidden_size)
+        assert query.size()==(config.BATCH_SIZE,self.hidden_size)
+        assert mix_hidden.size()[2]==self.hidden_size
+        #mix_hidden：bs,max_len,hidden_size  query:bs,hidden_size
         if self.mode=='dot':
             mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
             query=query.view(-1,self.hidden_size,1)
             return torch.addbmm(torch.zero([1,1],mix_hidden,query))
+        elif self.mode=='align':
+            pass
 
 
 class VIDEO_QUERY(nn.Module):
