@@ -75,7 +75,7 @@ class MEMORY(object):
     #注意这几个new_vector可能会是Variable变量，所以得想好这个怎么运算
     def updata_vector(self,old,new,old_num):
         '''这里定义如何更新旧的记忆里的memory和新的memory,
-        必须是new(Variable)+常量的形式
+        必须是new(Variable)+常量的形式,返回一个可以继续计算梯度的东西
         '''
         # return (old+new)/2 #最简单的，靠近最新的样本
         if isinstance(old,Variable):
@@ -114,7 +114,18 @@ class MEMORY(object):
             return final
 
 
+class ATTENTION(nn.Module):
+    def __init__(self,hidden_size,mode='dot'):
+        super(ATTENTION,self).__init__()
+        self.hidden_size=hidden_size
+        self.mode=mode
 
+    def foward(self,mix_hidden,query):
+        assert mix_hidden.size()==query.size()==(config.BATCH_SIZE,self.hidden_size)
+        if self.mode=='dot':
+            mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
+            query=query.view(-1,self.hidden_size,1)
+            return torch.addbmm(torch.zero([1,1],mix_hidden,query))
 
 
 class VIDEO_QUERY(nn.Module):
@@ -212,6 +223,21 @@ def main():
     print memory.get_image_num('Unknown_id')
     # print memory.get_video_vector('Unknown_id')
     print memory.add_video('Unknown_id',Variable(torch.ones(300)))
+
+    del data_generator,data,datasize
+
+    '''Begin to calculate.'''
+    for epoch_idx in range(config.MAX_EPOCH):
+        for batch_idx in range(config.EPOCH_SIZE):
+            train_data_gen=prepare_data('train')
+            train_data_size=prepare_datasize(train_data_gen)
+            train_data=train_data_gen.next()
+            query_video_output=query_video_layer(Variable(torch.from_numpy(train_data[4])))
+            mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
+
+
+
+
 
 
 if __name__ == "__main__":
