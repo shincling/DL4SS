@@ -168,12 +168,12 @@ def prepare_data(mode,train_or_test):
                             width,height=im.size
                             #此处用来决定三个通道维度上的先后顺序是x,y,3还是3,x,y
                             if not channel_first:
-                                im_array=np.zeros([width,height,3])
+                                im_array=np.zeros([width,height,3],dtype=np.float32)
                                 for x in range(width):
                                     for y in range(height):
                                         im_array[x,y]=pix[x,y]
                             else:
-                                im_array=np.zeros([3,width,height])
+                                im_array=np.zeros([3,width,height],dtype=np.float32)
                                 for x in range(width):
                                     for y in range(height):
                                         im_array[:,x,y]=pix[x,y]

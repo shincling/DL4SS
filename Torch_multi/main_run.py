@@ -90,7 +90,7 @@ class MEMORY(object):
             pass
         else:
             old=Variable(old,requires_grad=False)
-        tmp=(old+new)/2 #最简单的，靠近最新的样本
+        tmp=(old+new) #最简单的，靠近最新的样本
         final=tmp/tmp.data.norm(2)
         return final
 
@@ -195,7 +195,7 @@ class VIDEO_QUERY(nn.Module):
     def forward(self, x):
         assert x.size()[2]==3#判断是否不同通道在第三个维度
         x=x.view(-1,3,self.video_size[0],self.video_size[1])
-        x_hidden_images=self.images_net(x)
+        _,__,x_hidden_images=self.images_net(x)
         x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
         x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
         last_hidden=self.dense(x_lstm[:,-1])
@@ -271,18 +271,17 @@ def main():
     memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
     memory.register_spklist(spk_all_list) #把spk_list注册进空的memory里面去
 
-    print memory.get_all_spkid()
-    print memory.get_image_num('Unknown_id')
+    # Memory function test.
+    print 'memory all spkid:',memory.get_all_spkid()
+    # print memory.get_image_num('Unknown_id')
     # print memory.get_video_vector('Unknown_id')
-    print memory.add_video('Unknown_id',Variable(torch.ones(300)))
+    # print memory.add_video('Unknown_id',Variable(torch.ones(300)))
 
     # This part is to test the ATTENTION methond from query(~) to mix_speech
-    '''
-    x=torch.arange(0,24).view(2,3,4)
-    y=torch.ones([2,4])
-    att=ATTENTION(4,'align')
-    mask=att(x,y)#bs*max_len
-    '''
+    # x=torch.arange(0,24).view(2,3,4)
+    # y=torch.ones([2,4])
+    # att=ATTENTION(4,'align')
+    # mask=att(x,y)#bs*max_len
 
 
 
