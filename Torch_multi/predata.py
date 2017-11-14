@@ -205,8 +205,8 @@ def prepare_data(mode,train_or_test):
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
                     print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
-                    print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
-                    print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
+                    # print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
+                    # print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
                     if mode=='global':
                         dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
                         dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}

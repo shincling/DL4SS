@@ -93,9 +93,9 @@ EMBEDDING_SIZE = 50
 # 是否丰富数据
 AUGMENT_DATA = False
 # set the max epoch of training
-MAX_EPOCH = 50
+MAX_EPOCH = 250
 # epoch size
-EPOCH_SIZE = 20
+EPOCH_SIZE = 50
 # batch size
 BATCH_SIZE = 2
 # 评估的batch size
@@ -115,7 +115,7 @@ MAX_MIX = 2
 # 设置训练/开发/验证模型的最大语音长度(秒)
 MAX_LEN = 5
 MAX_LEN = FRAME_RATE*MAX_LEN
-# MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
+MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
 # 帧长
 WINDOWS = FRAME_LENGTH
 # 训练模型权重的目录

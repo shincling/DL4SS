@@ -229,7 +229,7 @@ class MIX_SPEECH(nn.Module):
         x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
         out=F.tanh(self.Linear(x))
         out=out.view(config.BATCH_SIZE,self.mix_speech_len,self.input_fre,-1)
-        print 'Mix speech output shape:',out.size()
+        # print 'Mix speech output shape:',out.size()
         return out
 
 
@@ -269,7 +269,7 @@ def main():
 
     # This part is to conduct the video inputs.
     query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total)
-    print query_video_layer
+    # print query_video_layer
     # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
 
     # This part is to conduct the memory.
@@ -286,6 +286,7 @@ def main():
     # This part is to test the ATTENTION methond from query(~) to mix_speech
     # x=torch.arange(0,24).view(2,3,4)
     # y=torch.ones([2,4])
+    att_layer=ATTENTION(config.EMBEDDING_SIZE,'align')
     # att=ATTENTION(4,'align')
     # mask=att(x,y)#bs*max_len
 
@@ -293,22 +294,43 @@ def main():
 
     del data_generator,data,datasize
 
-    '''Begin to calculate.'''
+    optimizer = torch.optim.SGD([{'params':mix_hidden_layer_3d.parameters()},
+                                 {'params':query_video_layer.lstm_layer.parameters()},
+                                 {'params':query_video_layer.dense.parameters()},
+                                 {'params':query_video_layer.Linear.parameters()},
+                                 {'params':att_layer.parameters()},
+                                 ], lr=0.02,momentum=0.9)
+    loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
+
+    print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
         for batch_idx in range(config.EPOCH_SIZE):
+            print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
-            train_data_size=prepare_datasize(train_data_gen)
             train_data=train_data_gen.next()
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
             query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])))
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
-            att=ATTENTION(config.EMBEDDING_SIZE,'align')
-            mask=att(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
-            print mask.size()
+            mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
+            # print mask.size()
             predict_map=mask*Variable(torch.from_numpy(train_data[1]))
             y_map=Variable(torch.from_numpy(train_data[2]))
-            print torch.abs(y_map-predict_map).norm()
-            1/0
+            print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm()
+            loss=loss_func(predict_map,y_map)
+            optimizer.zero_grad()   # clear gradients for next train
+            loss.backward()         # backpropagation, compute gradients
+            optimizer.step()        # apply gradients
+
+
+            # Print the Params history , that it proves well.
+            # print 'Parameter history:'
+            # for pa_gen in [{'params':mix_hidden_layer_3d.parameters()},
+            #                                  {'params':query_video_layer.lstm_layer.parameters()},
+            #                                  {'params':query_video_layer.dense.parameters()},
+            #                                  {'params':query_video_layer.Linear.parameters()},
+            #                                  {'params':att_layer.parameters()},
+            #                                  ]:
+            #     print pa_gen['params'].next()
 
 
 
