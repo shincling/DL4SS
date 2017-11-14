@@ -147,7 +147,8 @@ class ATTENTION(nn.Module):
         self.Linear_2=nn.Linear(hidden_size,self.align_hidden_size,bias=False)
         self.Linear_3=nn.Linear(self.align_hidden_size,1,bias=False)
 
-    def foward(self,mix_hidden,query):
+    def forward(self,mix_hidden,query):
+    # def forward(self,x):
         #todo:这个要弄好，其实也可以直接抛弃memory来进行attention
         assert query.size()==(config.BATCH_SIZE,self.hidden_size)
         assert mix_hidden.size()[2]==self.hidden_size
@@ -155,20 +156,22 @@ class ATTENTION(nn.Module):
         if self.mode=='dot':
             # mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
             query=query.view(-1,self.hidden_size,1)
-            dot=torch.addbmm(torch.zero([1,1],mix_hidden,query))
+            dot=torch.baddbmm(torch.zeros(1,1),mix_hidden,query)
             energy=dot.view(config.BATCH_SIZE,-1)
             mask=F.sigmoid(energy)
             return mask
 
         elif self.mode=='align':
+            # mix_hidden=Variable(mix_hidden)
+            # query=Variable(query)
             mix_hidden=mix_hidden.view(-1,self.hidden_size)
             mix_hidden=self.Linear_1(mix_hidden).view(config.BATCH_SIZE,-1,self.align_hidden_size)
             query=self.Linear_2(query).view(-1,1,self.align_hidden_size) #bs,1,hidden
             sum=F.tanh(mix_hidden+query)
             #TODO:从这里开始做起
-
-
-            pass
+            energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(config.BATCH_SIZE,-1)
+            mask=F.sigmoid(energy)
+            return mask
 
 
 class VIDEO_QUERY(nn.Module):
@@ -238,6 +241,11 @@ class MULTI_MODAL(object):
 def main():
     print('go to model')
     print '*' * 80
+
+    x=torch.arange(0,24).view(2,3,4)
+    y=torch.ones([2,4])
+    att=ATTENTION(4,'align')
+    mask=att(x,y)#bs*max_len
 
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     spk_all_list,dict1,dict2=spk_global_gen.next()
