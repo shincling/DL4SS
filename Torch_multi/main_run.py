@@ -242,11 +242,6 @@ def main():
     print('go to model')
     print '*' * 80
 
-    x=torch.arange(0,24).view(2,3,4)
-    y=torch.ones([2,4])
-    att=ATTENTION(4,'align')
-    mask=att(x,y)#bs*max_len
-
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     spk_all_list,dict1,dict2=spk_global_gen.next()
     del spk_global_gen
@@ -271,7 +266,6 @@ def main():
     print query_video_layer
     # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
 
-
     # This part is to conduct the memory.
     hidden_size=(config.HIDDEN_UNITS)
     memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
@@ -281,6 +275,16 @@ def main():
     print memory.get_image_num('Unknown_id')
     # print memory.get_video_vector('Unknown_id')
     print memory.add_video('Unknown_id',Variable(torch.ones(300)))
+
+    # This part is to test the ATTENTION methond from query(~) to mix_speech
+    '''
+    x=torch.arange(0,24).view(2,3,4)
+    y=torch.ones([2,4])
+    att=ATTENTION(4,'align')
+    mask=att(x,y)#bs*max_len
+    '''
+
+
 
     del data_generator,data,datasize
 
