@@ -263,12 +263,12 @@ def main():
     print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
 
     # This part is to build the 3D mix speech embedding maps.
-    mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len)
+    mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
     print mix_hidden_layer_3d
-    mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
+    # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
     # This part is to conduct the video inputs.
-    query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total)
+    query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
     # print query_video_layer
     # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
 
@@ -286,7 +286,7 @@ def main():
     # This part is to test the ATTENTION methond from query(~) to mix_speech
     # x=torch.arange(0,24).view(2,3,4)
     # y=torch.ones([2,4])
-    att_layer=ATTENTION(config.EMBEDDING_SIZE,'align')
+    att_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
     # att=ATTENTION(4,'align')
     # mask=att(x,y)#bs*max_len
 
@@ -308,14 +308,14 @@ def main():
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
-            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])))
-            query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])))
+            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
+            query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
             # print mask.size()
-            predict_map=mask*Variable(torch.from_numpy(train_data[1]))
-            y_map=Variable(torch.from_numpy(train_data[2]))
-            print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm()
+            predict_map=mask*Variable(torch.from_numpy(train_data[1])).cuda()
+            y_map=Variable(torch.from_numpy(train_data[2])).cuda()
+            print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             loss=loss_func(predict_map,y_map)
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
