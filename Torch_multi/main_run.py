@@ -148,7 +148,7 @@ class ATTENTION(nn.Module):
         self.Linear_3=nn.Linear(self.align_hidden_size,1,bias=False)
 
     def forward(self,mix_hidden,query):
-        #todo:这个要弄好，其实也可以直接抛弃memory来进行attention
+        #todo:这个要弄好，其实也可以直接抛弃memory来进行attention | DONE
         assert query.size()==(config.BATCH_SIZE,self.hidden_size)
         assert mix_hidden.size()[-1]==self.hidden_size
         #mix_hidden：bs,max_len,fre,hidden_size  query:bs,hidden_size
@@ -294,12 +294,13 @@ def main():
 
     del data_generator,data,datasize
 
-    optimizer = torch.optim.SGD([{'params':mix_hidden_layer_3d.parameters()},
+    optimizer = torch.optim.Adagrad([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':query_video_layer.lstm_layer.parameters()},
                                  {'params':query_video_layer.dense.parameters()},
                                  {'params':query_video_layer.Linear.parameters()},
                                  {'params':att_layer.parameters()},
-                                 ], lr=0.02,momentum=0.9)
+                                 # ], lr=0.02,momentum=0.9)
+                                 ], lr=0.02)
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
 
     print '''Begin to calculate.'''
@@ -309,7 +310,11 @@ def main():
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
-            query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
+            try:
+                query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
+            except RuntimeError:
+                print 'RuntimeError here.'+'#'*30
+                continue
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
             # print mask.size()
