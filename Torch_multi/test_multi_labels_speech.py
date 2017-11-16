@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config
-from predata import prepare_data,prepare_datasize,prepare_data_fake
+from predata_multiSpeechTest import prepare_data,prepare_datasize,prepare_data_fake
 import torchvision.models as models
 import myNet
 
