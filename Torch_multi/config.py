@@ -83,7 +83,8 @@ VALID_LIST = aim_path+'/valid_list'
 TEST_LIST = aim_path+'/test_list'
 # 未登录文件列表
 UNK_LIST = aim_path+'/unk_list'
-
+#query是否经过memory的再次更新
+Comm_with_Memory=True
 # DNN/RNN隐层的维度 hidden units
 HIDDEN_UNITS = 300
 # DNN/RNN层数
@@ -97,7 +98,7 @@ MAX_EPOCH = 250
 # epoch size
 EPOCH_SIZE = 50
 # batch size
-BATCH_SIZE = 2
+BATCH_SIZE =2
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate

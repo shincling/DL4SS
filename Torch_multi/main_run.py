@@ -30,7 +30,7 @@ class MEMORY(object):
 
     def init_memory(self):
         # self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        self.memory=[['Unknown_id',torch.ones(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
+        self.memory=[['Unknown_id',torch.zeros(3*self.hidden_size).cuda(),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
         # self.memory=[['Unknown_id',torch.range(1,3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
         # self.memory=[['Unknown_id',Variable(torch.zeros(3*self.hidden_size),requires_grad=True),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
 
@@ -273,7 +273,8 @@ def main():
     # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
 
     # This part is to conduct the memory.
-    hidden_size=(config.HIDDEN_UNITS)
+    # hidden_size=(config.HIDDEN_UNITS)
+    hidden_size=(config.EMBEDDING_SIZE)
     memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
     memory.register_spklist(spk_all_list) #把spk_list注册进空的memory里面去
 
@@ -305,16 +306,29 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
+        print '\n\n\n memory states:'
+        for one in memory.memory:
+            print '\nspk:{},video:{},age:{}'.format(one[0],one[1].cpu().numpy()[2*config.EMBEDDING_SIZE-3:2*config.EMBEDDING_SIZE+5],one[2])
+
+
+
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
-            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
             try:
+                mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
                 query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
             except RuntimeError:
                 print 'RuntimeError here.'+'#'*30
                 continue
+
+            if config.Comm_with_Memory:
+                aim_idx_FromVideoQuery=torch.max(query_video_output,dim=1)[1] #返回最大的参数
+                aim_spk_batch=[dict2[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
+                for idx,aim_spk in enumerate(aim_spk_batch):
+                    query_video_hidden[idx]=memory.add_video(aim_spk,query_video_hidden[idx])
+
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
             # print mask.size()
