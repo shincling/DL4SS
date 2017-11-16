@@ -325,6 +325,7 @@ def main():
                 continue
 
             if config.Comm_with_Memory:
+                #TODO:query更新这里要再检查一遍，最好改成函数，现在有点丑陋。
                 aim_idx_FromVideoQuery=torch.max(query_video_output,dim=1)[1] #返回最大的参数
                 aim_spk_batch=[dict2[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
                 print 'Query class result:',aim_spk_batch
@@ -335,7 +336,6 @@ def main():
                 query_video_hidden=query_video_hidden+Variable(batch_vector)
                 query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
                 y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
-            # y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
 
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
