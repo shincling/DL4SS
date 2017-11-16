@@ -12,8 +12,8 @@ from predata import prepare_data,prepare_datasize,prepare_data_fake
 import torchvision.models as models
 import myNet
 
-np.random.seed(1)#设定种子
-torch.manual_seed(1)
+# np.random.seed(1)#设定种子
+# torch.manual_seed(1)
 # stout=sys.stdout
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
@@ -250,8 +250,9 @@ class MIX_SPEECH_classifier(nn.Module):
         x,hidden=self.layer(x)
         x=x.contiguous() #bs*len*600
         # x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
-        x=torch.sum(x,1)
+        x=torch.mean(x,1)
         out=F.softmax(self.Linear(x))
+        # out=self.Linear(x)
         return out
 
 class MULTI_MODAL(object):
@@ -316,7 +317,7 @@ def main():
 
     del data_generator,data,datasize
 
-    optimizer = torch.optim.Adagrad([{'params':mix_speech_class.parameters()},
+    optimizer = torch.optim.SGD([{'params':mix_speech_class.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
                                  # {'params':query_video_layer.dense.parameters()},
                                  # {'params':query_video_layer.Linear.parameters()},
@@ -350,7 +351,7 @@ def main():
 
             y_map=Variable(torch.from_numpy(y_map)).cuda()
             # print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
-            for i in range(2):
+            for i in range(config.BATCH_SIZE):
                 print 'aim:{}-->{},predict:{}'.format(train_data[-1][i],y_aim[i],mix_speech.data.cpu().numpy()[i])
             loss=loss_func(mix_speech,y_map)
             optimizer.zero_grad()   # clear gradients for next train
