@@ -19,6 +19,11 @@ torch.manual_seed(1)
 # sys.stdout=log_file
 # logfile=config.LOG_FILE_PRE
 
+def print_memory_state(memory):
+    print '\n memory states:'
+    for one in memory:
+        print '\nspk:{},video:{},age:{}'.format(one[0],one[1].cpu().numpy()[2*config.EMBEDDING_SIZE-3:2*config.EMBEDDING_SIZE+5],one[2])
+
 class MEMORY(object):
     def __init__(self,total_size,hidden_size,):
         '''memory的设计很关键
@@ -303,15 +308,11 @@ def main():
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.02)
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
+    loss_query_class=torch.nn.CrossEntropyLoss()
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        print '\n\n\n memory states:'
-        for one in memory.memory:
-            print '\nspk:{},video:{},age:{}'.format(one[0],one[1].cpu().numpy()[2*config.EMBEDDING_SIZE-3:2*config.EMBEDDING_SIZE+5],one[2])
-
-
-
+        print_memory_state(memory.memory)
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
@@ -326,8 +327,15 @@ def main():
             if config.Comm_with_Memory:
                 aim_idx_FromVideoQuery=torch.max(query_video_output,dim=1)[1] #返回最大的参数
                 aim_spk_batch=[dict2[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
+                print 'Query class result:',aim_spk_batch
+
                 for idx,aim_spk in enumerate(aim_spk_batch):
-                    query_video_hidden[idx]=memory.add_video(aim_spk,query_video_hidden[idx])
+                    batch_vector=torch.stack([memory.get_video_vector(aim_spk)])
+                    memory.add_video(aim_spk,query_video_hidden[idx])
+                query_video_hidden=query_video_hidden+Variable(batch_vector)
+                query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
+                y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
+            # y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
 
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
@@ -336,8 +344,10 @@ def main():
             y_map=Variable(torch.from_numpy(train_data[2])).cuda()
             print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             loss=loss_func(predict_map,y_map)
+            loss_class=loss_query_class(query_video_output,y_class)
+            loss=loss+loss_class
             optimizer.zero_grad()   # clear gradients for next train
-            loss.backward()         # backpropagation, compute gradients
+            loss.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
 
