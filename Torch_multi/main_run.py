@@ -344,10 +344,14 @@ def main():
             predict_map=mask*Variable(torch.from_numpy(train_data[1])).cuda()
             y_map=Variable(torch.from_numpy(train_data[2])).cuda()
             print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
-            loss=loss_func(predict_map,y_map)
+            loss_all=loss_func(predict_map,y_map)
             loss_class=loss_query_class(query_video_output,y_class)
-            loss=loss+loss_class
-            # loss=loss_class
+            if epoch_idx<20:
+                loss=loss_class
+                if epoch_idx%1==0 and batch_idx==config.EPOCH_SIZE-1:
+                    torch.save(query_video_layer.state_dict(),'param_video_layer_19')
+            else:
+                loss=loss_all+0.1*loss_class
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
