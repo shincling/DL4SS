@@ -210,8 +210,8 @@ class VIDEO_QUERY(nn.Module):
         x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
         x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
         last_hidden=self.dense(x_lstm[:,-1])
-        out=F.softmax(self.Linear(last_hidden)) #出处类别的概率,为什么很多都不加softmax的。。。
-        # out=self.Linear(last_hidden) #出处类别的概率,为什么很多都不加softmax的。。。
+        # out=F.softmax(self.Linear(last_hidden)) #出处类别的概率,为什么很多都不加softmax的。。。
+        out=self.Linear(last_hidden) #出处类别的概率,为什么很多都不加softmax的。。。
         return out,last_hidden
 
 class MIX_SPEECH(nn.Module):
@@ -300,13 +300,13 @@ def main():
 
     del data_generator,data,datasize
 
-    optimizer = torch.optim.Adagrad([{'params':mix_hidden_layer_3d.parameters()},
+    optimizer = torch.optim.RMSprop([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':query_video_layer.lstm_layer.parameters()},
                                  {'params':query_video_layer.dense.parameters()},
                                  {'params':query_video_layer.Linear.parameters()},
                                  {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.02)
+                                 ], lr=0.002)
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_query_class=torch.nn.CrossEntropyLoss()
 
@@ -328,7 +328,7 @@ def main():
                 #TODO:query更新这里要再检查一遍，最好改成函数，现在有点丑陋。
                 aim_idx_FromVideoQuery=torch.max(query_video_output,dim=1)[1] #返回最大的参数
                 aim_spk_batch=[dict2[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
-                print 'Query class result:',aim_spk_batch
+                print 'Query class result:',aim_spk_batch,'p:',query_video_output.data.cpu().numpy()
 
                 for idx,aim_spk in enumerate(aim_spk_batch):
                     batch_vector=torch.stack([memory.get_video_vector(aim_spk)])
@@ -336,6 +336,7 @@ def main():
                 query_video_hidden=query_video_hidden+Variable(batch_vector)
                 query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
                 y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
+                print y_class
 
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
@@ -346,6 +347,7 @@ def main():
             loss=loss_func(predict_map,y_map)
             loss_class=loss_query_class(query_video_output,y_class)
             loss=loss+loss_class
+            # loss=loss_class
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
