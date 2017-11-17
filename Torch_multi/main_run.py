@@ -301,12 +301,13 @@ def main():
     del data_generator,data,datasize
 
     optimizer = torch.optim.RMSprop([{'params':mix_hidden_layer_3d.parameters()},
-                                 {'params':query_video_layer.lstm_layer.parameters()},
-                                 {'params':query_video_layer.dense.parameters()},
-                                 {'params':query_video_layer.Linear.parameters()},
+                                 # {'params':query_video_layer.lstm_layer.parameters()},
+                                 # {'params':query_video_layer.dense.parameters()},
+                                 # {'params':query_video_layer.Linear.parameters()},
                                  {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.002)
+                                 ], lr=0.01)
+    query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_query_class=torch.nn.CrossEntropyLoss()
 
@@ -346,7 +347,7 @@ def main():
             print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             loss_all=loss_func(predict_map,y_map)
             loss_class=loss_query_class(query_video_output,y_class)
-            if epoch_idx<20:
+            if 0 and epoch_idx<20:
                 loss=loss_class
                 if epoch_idx%1==0 and batch_idx==config.EPOCH_SIZE-1:
                     torch.save(query_video_layer.state_dict(),'param_video_layer_19')
