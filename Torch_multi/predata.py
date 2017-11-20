@@ -185,15 +185,16 @@ def prepare_data(mode,train_or_test):
                     else:
                         wav_mix = wav_mix + signal  # 混叠后的语音
 
-                    # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
-                    if config.IS_LOG_SPECTRAL:
-                        feature_mix = np.log(np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                            config.FRAME_SHIFT,
-                                                                                            window=config.WINDOWS)))
-                                             + np.spacing(1))
-                    else:
-                        feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
+                # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
+                if config.IS_LOG_SPECTRAL:
+                    feature_mix = np.log(np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
+                                                                                        config.FRAME_SHIFT,
+                                                                                        window=config.WINDOWS)))
+                                         + np.spacing(1))
+                else:
+                    feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
                                                                                      config.FRAME_SHIFT,)))
+
                 mix_speechs[batch_idx,:]=wav_mix
                 mix_feas.append(feature_mix)
 
