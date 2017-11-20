@@ -251,7 +251,7 @@ class MIX_SPEECH_classifier(nn.Module):
         x=x.contiguous() #bs*len*600
         # x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
         x=torch.mean(x,1)
-        out=F.softmax(self.Linear(x))
+        out=F.sigmoid(self.Linear(x))
         # out=self.Linear(x)
         return out
 
@@ -325,6 +325,7 @@ def main():
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.02)
     loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
+    loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
 
     print '''Begin to calculate.'''
@@ -345,6 +346,7 @@ def main():
                     line=[0,1]
                 else:
                     line=[0.5,0.5]
+                    line=[1,1]
                 y_aim.append(line)
             y_map=np.array(y_aim,dtype=np.float32)
 
