@@ -187,6 +187,7 @@ def prepare_data(mode,train_or_test):
                     # print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
                     # print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
                     if mode=='global':
+                        all_spk=sorted(all_spk)
                         dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
                         dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}
                         yield all_spk,dict_spk_to_idx,dict_idx_to_spk
