@@ -233,7 +233,7 @@ class MIX_SPEECH(nn.Module):
         return out
 
 class MIX_SPEECH_classifier(nn.Module):
-    def __init__(self,input_fre,mix_speech_len):
+    def __init__(self,input_fre,mix_speech_len,num_labels):
         super(MIX_SPEECH_classifier,self).__init__()
         self.input_fre=input_fre
         self.mix_speech_len=mix_speech_len
@@ -244,7 +244,7 @@ class MIX_SPEECH_classifier(nn.Module):
             batch_first=True,
             bidirectional=True
         )
-        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,2)
+        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,num_labels)
 
     def forward(self,x):
         x,hidden=self.layer(x)
@@ -265,6 +265,21 @@ class MULTI_MODAL(object):
         mix_hidden_layer_3d=MIX_SPEECH(self.speech_fre,self.mix_speech_len)
         output=mix_hidden_layer_3d(Variable(torch.from_numpy(self.gen.next()[1])))
 
+def multi_label_vector(x,dict_name2idx):
+    y_spk,y_aim=[],[]
+    length=len(dict_name2idx)
+    for sample in x:
+        tmp_vector=[0 for _ in range(length)]
+        line=[]
+        for spk in sample:
+            line.append(dict_name2idx[spk])
+            for l in line:
+                tmp_vector[l]=1
+        y_spk.append(line)
+        y_aim.append(tmp_vector)
+    y_map=np.array(y_aim,dtype=np.float32)
+    return y_spk,y_map
+
 
 def main():
     print('go to model')
@@ -272,7 +287,9 @@ def main():
 
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     spk_all_list,dict1,dict2=spk_global_gen.next()
+    print 'dict spk to idx:',dict1
     del spk_global_gen
+    num_labels=len(spk_all_list)
 
     # data_generator=prepare_data('once','train')
     data_generator=prepare_data_fake(train_or_test='train') #写一个假的数据生成，可以用来写模型先
@@ -286,7 +303,7 @@ def main():
 
     # This part is to build the 3D mix speech embedding maps.
     # mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
-    mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len).cuda()
+    mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     print mix_speech_class
     # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
@@ -334,27 +351,13 @@ def main():
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
-            mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data[1])).cuda())
-            y_aim=[]
-            for sample in train_data[-1]:
-                line=[]
-                for spk in sample:
-                    line.append(dict1[spk])
-                if line==[0,0]:
-                    line=[1,0]
-                elif line==[1,1]:
-                    line=[0,1]
-                else:
-                    line=[0.5,0.5]
-                    line=[1,1]
-                y_aim.append(line)
-            y_map=np.array(y_aim,dtype=np.float32)
+            mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data[1])))
 
-
+            y_spk,y_map=multi_label_vector(train_data[-1],dict1)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
             # print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             for i in range(config.BATCH_SIZE):
-                print 'aim:{}-->{},predict:{}'.format(train_data[-1][i],y_aim[i],mix_speech.data.cpu().numpy()[i])
+                print 'aim:{}-->{},predict:{}'.format(train_data[-1][i],y_spk[i],mix_speech.data.cpu().numpy()[i])
             loss=loss_func(mix_speech,y_map)
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
