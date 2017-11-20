@@ -107,7 +107,8 @@ def prepare_data(mode,train_or_test):
             while True:
                 mix_len=0
                 mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
-                aim_spk_k=[random.choice(all_spk) for i in range(mix_k)]#本次混合的候选人
+                aim_spk_k=random.sample(all_spk,mix_k)#本次混合的候选人
+                # aim_spk_k=[random.sample(all_spk) for i in range(mix_k)]#本次混合的候选人
                 aim_pro.append(aim_spk_k)
                 for k,spk in enumerate(aim_spk_k):
 
@@ -122,7 +123,7 @@ def prepare_data(mode,train_or_test):
 
                     #这个时候这个spk已经注册了，所以直接从里面选就好了
                     sample_name=random.sample(spk_samples_list[spk],1)[0]
-                    # spk_samples_list[spk].remove(sample_name)#取出来一次之后，就把这个人去掉（避免一个batch里某段语音的重复出现）
+                    spk_samples_list[spk].remove(sample_name)#取出来一次之后，就把这个人去掉（避免一个batch里某段语音的重复出现）
                     spk_speech_path=data_path+'/'+spk+'/'+spk+'_speech/'+sample_name+'.wav'
 
                     signal, rate = sf.read(spk_speech_path)  # signal 是采样值，rate 是采样频率
@@ -162,14 +163,14 @@ def prepare_data(mode,train_or_test):
                     else:
                         wav_mix = wav_mix + signal  # 混叠后的语音
 
-                    # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
-                    if config.IS_LOG_SPECTRAL:
-                        feature_mix = np.log(np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                            config.FRAME_SHIFT,
-                                                                                            window=config.WINDOWS)))
-                                             + np.spacing(1))
-                    else:
-                        feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
+                # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
+                if config.IS_LOG_SPECTRAL:
+                    feature_mix = np.log(np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
+                                                                                        config.FRAME_SHIFT,
+                                                                                        window=config.WINDOWS)))
+                                         + np.spacing(1))
+                else:
+                    feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
                                                                                      config.FRAME_SHIFT,)))
                 mix_speechs[batch_idx,:]=wav_mix
                 mix_feas.append(feature_mix)
@@ -182,6 +183,7 @@ def prepare_data(mode,train_or_test):
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
                     print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
+                    print 'aim spk list:',aim_pro
                     # print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
                     # print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
                     if mode=='global':
