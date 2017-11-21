@@ -351,7 +351,7 @@ def main():
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
-            mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data[1])))
+            mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data[1])).cuda())
 
             y_spk,y_map=multi_label_vector(train_data[-1],dict1)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
