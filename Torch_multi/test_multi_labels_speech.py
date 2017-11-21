@@ -280,6 +280,29 @@ def multi_label_vector(x,dict_name2idx):
     y_map=np.array(y_aim,dtype=np.float32)
     return y_spk,y_map
 
+def count_multi_acc(y_out_batch,true_spk,alpha=0.5):
+    len_vector=y_out_batch.shape[1]
+    all_num=y_out_batch.flatten().shape[0]
+    all_line=y_out_batch.shape[0]
+    right_num=0
+    right_line=0
+    y_out_batch=np.int32(y_out_batch>alpha)
+    for line_idx,line in enumerate(true_spk):
+        true_vector=y_out_batch[line_idx]
+        out_vector=np.zeros(len_vector)
+        for x in line:
+            out_vector[x]=1
+        if (out_vector==true_vector).min()==1: #如果最小的也是true，那么就都是true了
+            line_right=1
+        else:
+            line_right=0
+
+        right_num+=np.count_nonzero((out_vector-true_vector)==0)
+        right_line+=line_right
+    allelement_acc=float(right_num)/all_num
+    allsample_acc=float(right_line)/all_line
+    return allelement_acc,allsample_acc,all_num,all_line
+
 
 def main():
     print('go to model')
@@ -334,7 +357,10 @@ def main():
 
     del data_generator,data,datasize
 
-    optimizer = torch.optim.SGD([{'params':mix_speech_class.parameters()},
+    if config.Load_param:
+        mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
+
+    optimizer = torch.optim.Adagrad([{'params':mix_speech_class.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
                                  # {'params':query_video_layer.dense.parameters()},
                                  # {'params':query_video_layer.Linear.parameters()},
@@ -347,6 +373,7 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
+        acc_all,acc_line=0,0
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
@@ -355,16 +382,22 @@ def main():
 
             y_spk,y_map=multi_label_vector(train_data[-1],dict1)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
+            y_out_batch=mix_speech.data.cpu().numpy()
+            acc1,acc2,all_num_batch,all_line_batch=count_multi_acc(y_out_batch,y_spk)
+            acc_all+=acc1
+            acc_line+=acc2
+
             # print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             for i in range(config.BATCH_SIZE):
                 print 'aim:{}-->{},predict:{}'.format(train_data[-1][i],y_spk[i],mix_speech.data.cpu().numpy()[i])
-            loss=loss_func(mix_speech,y_map)
-            optimizer.zero_grad()   # clear gradients for next train
-            loss.backward()         # backpropagation, compute gradients
-            optimizer.step()        # apply gradients
+            print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{}'.format(all_num_batch,acc1,all_line_batch,acc2)
+            # loss=loss_func(mix_speech,y_map)
+            # optimizer.zero_grad()   # clear gradients for next train
+            # loss.backward()         # backpropagation, compute gradients
+            # optimizer.step()        # apply gradients
 
-        if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
-            torch.save(mix_speech_class.state_dict(), 'params/param_speech_multilabel_epoch{}'.format(epoch_idx))
+        # if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
+        #     torch.save(mix_speech_class.state_dict(), 'params/param_speech_multilabel_epoch{}'.format(epoch_idx))
 
             # Print the Params history , that it proves well.
             # print 'Parameter history:'
@@ -375,6 +408,8 @@ def main():
             #                                  {'params':att_layer.parameters()},
             #                                  ]:
             #     print pa_gen['params'].next()
+
+        print 'Acc for this epoch: all elements acc--{},all sample acc--{}'.format(acc_all/config.EPOCH_SIZE,acc_line/config.EPOCH_SIZE)
 
 
 
