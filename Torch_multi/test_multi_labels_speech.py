@@ -341,7 +341,7 @@ def main():
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.02)
-    loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
+    # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
     loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
 
@@ -363,6 +363,8 @@ def main():
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
+        if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
+            torch.save(mix_speech_class.state_dict(), 'params/param_speech_multilabel_epoch{}'.format(epoch_idx))
 
             # Print the Params history , that it proves well.
             # print 'Parameter history:'
