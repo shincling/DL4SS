@@ -11,7 +11,7 @@ import resampy
 import librosa
 import shutil
 import subprocess
-import Image
+# from PIL import Image
 
 channel_first=config.channel_first
 
@@ -120,8 +120,7 @@ def prepare_data(mode,train_or_test):
 
                         #这个函数让spk_sanmples_list[spk]按照设定好的方式选择是train的部分还是test
                         spk_samples_list[spk]=split_forTrainDevTest(spk_samples_list[spk],train_or_test)
-                    print spk,len(spk_samples_list[spk])
-
+                    # print spk,len(spk_samples_list[spk])
 
                     #这个时候这个spk已经注册了，所以直接从里面选就好了
                     sample_name=random.sample(spk_samples_list[spk],1)[0]
