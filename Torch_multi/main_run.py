@@ -237,6 +237,40 @@ class MIX_SPEECH(nn.Module):
         # print 'Mix speech output shape:',out.size()
         return out
 
+class MIX_SPEECH_classifier(nn.Module):
+    def __init__(self,input_fre,mix_speech_len,num_labels):
+        super(MIX_SPEECH_classifier,self).__init__()
+        self.input_fre=input_fre
+        self.mix_speech_len=mix_speech_len
+        self.layer=nn.LSTM(
+            input_size=input_fre,
+            hidden_size=config.HIDDEN_UNITS,
+            num_layers=config.NUM_LAYERS,
+            batch_first=True,
+            bidirectional=True
+        )
+        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,num_labels)
+
+    def forward(self,x):
+        x,hidden=self.layer(x)
+        x=x.contiguous() #bs*len*600
+        # x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
+        x=torch.mean(x,1)
+        out=F.sigmoid(self.Linear(x))
+        # out=self.Linear(x)
+        return out
+
+class SPEECH_EMBEDDING(nn.Module):
+    def __init__(self,num_labels,embedding_size,max_num_channel):
+        super(SPEECH_EMBEDDING,self).__init__()
+        self.num_all=num_labels
+        self.emb_size=embedding_size
+        self.max_num_out=max_num_channel
+        self.layer=nn.Embedding(num_labels,embedding_size)
+
+    def forward(self, input):
+        out=self.layer(input)
+        return out
 
 class MULTI_MODAL(object):
     def __init__(self,datasize,gen):
@@ -256,6 +290,7 @@ def main():
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     spk_all_list,dict1,dict2=spk_global_gen.next()
     del spk_global_gen
+    num_labels=len(spk_all_list)
 
     # data_generator=prepare_data('once','train')
     data_generator=prepare_data_fake(train_or_test='train') #写一个假的数据生成，可以用来写模型先
@@ -269,6 +304,8 @@ def main():
 
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
+    mix_speech_classifier=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels)
+    mix_speech_multiEmbedding=SPEECH_EMBEDDING(num_labels,config.EMBEDDING_SIZE,spk_num_total+config.UNK_SPK_SUPP)
     print mix_hidden_layer_3d
     # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
@@ -320,6 +357,7 @@ def main():
             train_data=train_data_gen.next()
             try:
                 mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
+                mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data[1])).cuda())
                 query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
             except RuntimeError:
                 print 'RuntimeError here.'+'#'*30
