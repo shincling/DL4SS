@@ -118,8 +118,10 @@ def prepare_data(mode,train_or_test):
                         for ss in os.listdir(data_path+'/'+spk+'/'+spk+'_speech'):
                             spk_samples_list[spk].append(ss[:-4]) #去掉.wav后缀
 
-                    #这个函数让spk_sanmples_list[spk]按照设定好的方式选择是train的部分还是test
-                    spk_samples_list[spk]=split_forTrainDevTest(spk_samples_list[spk],train_or_test)
+                        #这个函数让spk_sanmples_list[spk]按照设定好的方式选择是train的部分还是test
+                        spk_samples_list[spk]=split_forTrainDevTest(spk_samples_list[spk],train_or_test)
+                    print spk,len(spk_samples_list[spk])
+
 
                     #这个时候这个spk已经注册了，所以直接从里面选就好了
                     sample_name=random.sample(spk_samples_list[spk],1)[0]
