@@ -283,6 +283,23 @@ class MULTI_MODAL(object):
         output=mix_hidden_layer_3d(Variable(torch.from_numpy(self.gen.next()[1])))
 
 
+def top_k_mask(batch_pro,alpha,top_k):
+    'batch_pro是 bs*n的概率分布，例如2×3的，每一行是一个概率分布\
+    alpha是阈值，大于它的才可以取，可以跟Multi-label语音分离的ACC的alpha对应;\
+    top_k是最多输出几个候选目标\
+    输出是与bs*n的一个mask，float型的'
+    size=batch_pro.size()
+    final=torch.zeros(size)
+    sort_result,sort_index=torch.sort(batch_pro,1,True) #先排个序
+    sort_index=sort_index[:,:top_k] #选出每行的top_k的id
+    sort_result=torch.sum(sort_result>alpha,1)
+    for line_idx in range(size[0]):
+        line_top_k=sort_index[line_idx][:int(sort_result[line_idx].data.cpu().numpy())]
+        line_top_k=line_top_k.data.cpu().numpy()
+        for i in line_top_k:
+            final[line_idx,i]=1
+    return final
+
 def main():
     print('go to model')
     print '*' * 80
@@ -300,6 +317,7 @@ def main():
     datasize=prepare_datasize(data_generator)
     mix_speech_len,speech_fre,total_frames,spk_num_total,video_size=datasize
     print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
+    data=data_generator.next()
 
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
@@ -307,7 +325,13 @@ def main():
     mix_speech_multiEmbedding=SPEECH_EMBEDDING(num_labels,config.EMBEDDING_SIZE,spk_num_total+config.UNK_SPK_SUPP)
     print mix_hidden_layer_3d
     print mix_speech_classifier
-    # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
+    # mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
+
+    mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(data[1])).cuda())
+    #技巧：alpha0的时候，就是选出top_k，top_k很大的时候，就是选出来大于alpha的
+    top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=3)
+    print top_k_mask_mixspeech
+
 
     # This part is to conduct the video inputs.
     query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
@@ -335,7 +359,7 @@ def main():
 
 
 
-    del data_generator,datasize
+    del data_generator,data,datasize
 
     optimizer = torch.optim.RMSprop([{'params':mix_hidden_layer_3d.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
@@ -357,9 +381,12 @@ def main():
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
+
+            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
+            mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data[1])).cuda())
+            top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=3)
+            # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
             try:
-                mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
-                mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data[1])).cuda())
                 query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
             except RuntimeError:
                 print 'RuntimeError here.'+'#'*30
@@ -380,9 +407,8 @@ def main():
                 print y_class
                 loss_video_class=loss_query_class(query_video_output,y_class)
 
-            # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
-            # print mask.size()
+
             predict_map=mask*Variable(torch.from_numpy(train_data[1])).cuda()
             y_map=Variable(torch.from_numpy(train_data[2])).cuda()
             print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
@@ -392,7 +418,8 @@ def main():
                 if epoch_idx%1==0 and batch_idx==config.EPOCH_SIZE-1:
                     torch.save(query_video_layer.state_dict(),'param_video_layer_19_forS1S5')
             else:
-                loss=loss_all+0.1*loss_video_class
+                # loss=loss_all+0.1*loss_video_class
+                loss = loss_all
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
