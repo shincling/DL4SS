@@ -55,9 +55,10 @@ def prepare_datasize(gen):
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
     #暂时输出的是：语音长度、语音频率数量、视频截断之后的长度
+    print 'datasize:',data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1],(data[4].shape[2],data[4].shape[3])
     return data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1],(data[4].shape[2],data[4].shape[3])
 
-def prepare_data_fake(train_or_test):
+def prepare_data_fake(train_or_test,num_labels):
     while True:
         out=[]
         if channel_first:
@@ -66,7 +67,7 @@ def prepare_data_fake(train_or_test):
         else:
             for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, config.VideoSize[0], config.VideoSize[1], 3)]:
                 out.append(np.float32(np.random.random(i)))
-        out.append(2)
+        out.append(num_labels)
         yield out
 
 def prepare_data(mode,train_or_test):

@@ -293,20 +293,20 @@ def main():
     num_labels=len(spk_all_list)
 
     # data_generator=prepare_data('once','train')
-    data_generator=prepare_data_fake(train_or_test='train') #写一个假的数据生成，可以用来写模型先
+    data_generator=prepare_data_fake(train_or_test='train',num_labels=num_labels) #写一个假的数据生成，可以用来写模型先
 
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
     datasize=prepare_datasize(data_generator)
     mix_speech_len,speech_fre,total_frames,spk_num_total,video_size=datasize
-    data=data_generator.next()
     print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
 
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
-    mix_speech_classifier=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels)
+    mix_speech_classifier=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     mix_speech_multiEmbedding=SPEECH_EMBEDDING(num_labels,config.EMBEDDING_SIZE,spk_num_total+config.UNK_SPK_SUPP)
     print mix_hidden_layer_3d
+    print mix_speech_classifier
     # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
     # This part is to conduct the video inputs.
@@ -335,7 +335,7 @@ def main():
 
 
 
-    del data_generator,data,datasize
+    del data_generator,datasize
 
     optimizer = torch.optim.RMSprop([{'params':mix_hidden_layer_3d.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
@@ -344,7 +344,9 @@ def main():
                                  {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.01)
-    query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
+    if config.Load_param:
+        # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
+        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_query_class=torch.nn.CrossEntropyLoss()
 
@@ -376,6 +378,7 @@ def main():
                 query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
                 y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
                 print y_class
+                loss_video_class=loss_query_class(query_video_output,y_class)
 
             # att=ATTENTION(config.EMBEDDING_SIZE,'dot')
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
@@ -384,13 +387,12 @@ def main():
             y_map=Variable(torch.from_numpy(train_data[2])).cuda()
             print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             loss_all=loss_func(predict_map,y_map)
-            loss_class=loss_query_class(query_video_output,y_class)
             if 0 and epoch_idx<20:
-                loss=loss_class
+                loss=loss_video_class
                 if epoch_idx%1==0 and batch_idx==config.EPOCH_SIZE-1:
-                    torch.save(query_video_layer.state_dict(),'param_video_layer_19')
+                    torch.save(query_video_layer.state_dict(),'param_video_layer_19_forS1S5')
             else:
-                loss=loss_all+0.1*loss_class
+                loss=loss_all+0.1*loss_video_class
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
