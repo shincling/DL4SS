@@ -269,12 +269,17 @@ class SPEECH_EMBEDDING(nn.Module):
         self.layer=nn.Embedding(num_labels,embedding_size,padding_idx=-1)
 
     def forward(self, input):
+        input_float=input
+        size=input.size()
         input=torch.from_numpy(np.int64(input.numpy()))
         order_matrix=np.arange(0,self.num_all).reshape([1,self.num_all]).repeat(config.BATCH_SIZE,0)
         order_matrix=torch.from_numpy(order_matrix)
         aim_matrix=order_matrix*input
         all=self.layer(Variable(aim_matrix)) # bs*num_labels（最多混合人个数）×Embedding的大小
-        return all
+        input_float=input_float.view(size[0],size[1],1).expand(size[0],size[1],self.emb_size).contiguous()
+        input_float=Variable(input_float,requires_grad=False)
+        out=all*input_float
+        return out
 
 class MULTI_MODAL(object):
     def __init__(self,datasize,gen):
