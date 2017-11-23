@@ -154,17 +154,18 @@ class ATTENTION(nn.Module):
 
     def forward(self,mix_hidden,query):
         #todo:这个要弄好，其实也可以直接抛弃memory来进行attention | DONE
-        assert query.size()==(config.BATCH_SIZE,self.hidden_size)
-        assert mix_hidden.size()[-1]==self.hidden_size
+        BATCH_SIZE=mix_hidden.size()[0]
+        # assert query.size()==(BATCH_SIZE,self.hidden_size)
+        # assert mix_hidden.size()[-1]==self.hidden_size
         #mix_hidden：bs,max_len,fre,hidden_size  query:bs,hidden_size
         if self.mode=='dot':
             # mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
             mix_shape=mix_hidden.size()
-            mix_hidden=mix_hidden.view(config.BATCH_SIZE,-1,self.hidden_size)
+            mix_hidden=mix_hidden.view(BATCH_SIZE,-1,self.hidden_size)
             query=query.view(-1,self.hidden_size,1)
             print '\n\n',mix_hidden.requires_grad,query.requires_grad,'\n\n'
-            dot=torch.baddbmm(Variable(torch.zeros(1,1)),mix_hidden,query)
-            energy=dot.view(config.BATCH_SIZE,mix_shape[1],mix_shape[2])
+            dot=torch.baddbmm(Variable(torch.zeros(1,1).cuda()),mix_hidden,query)
+            energy=dot.view(BATCH_SIZE,mix_shape[1],mix_shape[2])
             mask=F.sigmoid(energy)
             return mask
 
@@ -173,11 +174,11 @@ class ATTENTION(nn.Module):
             # query=Variable(query)
             mix_shape=mix_hidden.size()
             mix_hidden=mix_hidden.view(-1,self.hidden_size)
-            mix_hidden=self.Linear_1(mix_hidden).view(config.BATCH_SIZE,-1,self.align_hidden_size)
+            mix_hidden=self.Linear_1(mix_hidden).view(BATCH_SIZE,-1,self.align_hidden_size)
             query=self.Linear_2(query).view(-1,1,self.align_hidden_size) #bs,1,hidden
             sum=F.tanh(mix_hidden+query)
             #TODO:从这里开始做起
-            energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(config.BATCH_SIZE,mix_shape[1],mix_shape[2])
+            energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(BATCH_SIZE,mix_shape[1],mix_shape[2])
             mask=F.sigmoid(energy)
             return mask
 
@@ -275,9 +276,9 @@ class SPEECH_EMBEDDING(nn.Module):
         order_matrix=np.arange(0,self.num_all).reshape([1,self.num_all]).repeat(config.BATCH_SIZE,0)
         order_matrix=torch.from_numpy(order_matrix)
         aim_matrix=order_matrix*input
-        all=self.layer(Variable(aim_matrix)) # bs*num_labels（最多混合人个数）×Embedding的大小
+        all=self.layer(Variable(aim_matrix).cuda()) # bs*num_labels（最多混合人个数）×Embedding的大小
         input_float=input_float.view(size[0],size[1],1).expand(size[0],size[1],self.emb_size).contiguous()
-        input_float=Variable(input_float,requires_grad=False)
+        input_float=Variable(input_float,requires_grad=False).cuda()
         out=all*input_float
         return out
 
@@ -331,10 +332,10 @@ def main():
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
     mix_speech_classifier=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
-    mix_speech_multiEmbedding=SPEECH_EMBEDDING(num_labels,config.EMBEDDING_SIZE,spk_num_total+config.UNK_SPK_SUPP)
+    mix_speech_multiEmbedding=SPEECH_EMBEDDING(num_labels,config.EMBEDDING_SIZE,spk_num_total+config.UNK_SPK_SUPP).cuda()
     print mix_hidden_layer_3d
     print mix_speech_classifier
-    # mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
+    mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])).cuda())
 
     mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(data[1])).cuda())
     #技巧：alpha0的时候，就是选出top_k，top_k很大的时候，就是选出来大于alpha的
@@ -342,6 +343,17 @@ def main():
     top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=3)
     print top_k_mask_mixspeech
     mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
+    # mix_speech_multiEmbs=mix_speech_multiEmbedding(Variable(torch.from_numpy(top_k_mask_mixspeech),requires_grad=False).cuda()) # bs*num_labels（最多混合人个数）×Embedding的大小
+
+    #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
+    #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
+    mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
+    mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
+    mix_speech_hidden_5d=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
+    att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+    att_multi_speech=att_speech_layer(mix_speech_hidden_5d,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
+    print att_multi_speech.size()
+    att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,-1)
 
 
     # This part is to conduct the video inputs.
