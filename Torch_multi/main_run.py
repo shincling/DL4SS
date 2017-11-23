@@ -266,11 +266,15 @@ class SPEECH_EMBEDDING(nn.Module):
         self.num_all=num_labels
         self.emb_size=embedding_size
         self.max_num_out=max_num_channel
-        self.layer=nn.Embedding(num_labels,embedding_size)
+        self.layer=nn.Embedding(num_labels,embedding_size,padding_idx=-1)
 
     def forward(self, input):
-        out=self.layer(input)
-        return out
+        input=torch.from_numpy(np.int64(input.numpy()))
+        order_matrix=np.arange(0,self.num_all).reshape([1,self.num_all]).repeat(config.BATCH_SIZE,0)
+        order_matrix=torch.from_numpy(order_matrix)
+        aim_matrix=order_matrix*input
+        all=self.layer(Variable(aim_matrix)) # bs*num_labels（最多混合人个数）×Embedding的大小
+        return all
 
 class MULTI_MODAL(object):
     def __init__(self,datasize,gen):
@@ -329,8 +333,10 @@ def main():
 
     mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(data[1])).cuda())
     #技巧：alpha0的时候，就是选出top_k，top_k很大的时候，就是选出来大于alpha的
-    top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=3)
+    # top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=config.MAX_MIX)
+    top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=3)
     print top_k_mask_mixspeech
+    mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
 
 
     # This part is to conduct the video inputs.
