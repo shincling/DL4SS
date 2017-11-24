@@ -163,6 +163,7 @@ def prepare_data(mode,train_or_test):
                         multi_dict_this_sample[spk]=aim_fea_clean
 
                         #视频处理部分，为了得到query
+                        '''
                         aim_spk_video_path=data_path+'/'+spk+'/'+spk+'_video/'+sample_name+'.mpg'
                         extract_frames(aim_spk_video_path,sample_name) #抽取frames从第一个目标人的视频里,在本目录下生成一个临时的文件夹
                         aim_video_imagename_list = sorted(os.listdir(sample_name)) #得到这个文件夹里的所有图像的名字
@@ -186,7 +187,7 @@ def prepare_data(mode,train_or_test):
                         query.append(aim_video_image_list)#添加到最终的query里，作为batch里的一个sample
 
                         shutil.rmtree(sample_name)#删除临时文件夹
-
+                        '''
                     else:
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
@@ -194,7 +195,7 @@ def prepare_data(mode,train_or_test):
                                                                                        config.FRAME_SHIFT, window=config.WINDOWS)))
                         multi_dict_this_sample[spk]=some_fea_clean
 
-                    multi_spk_fea_list.append(multi_dict_this_sample) #把这个sample的dict传进去
+                multi_spk_fea_list.append(multi_dict_this_sample) #把这个sample的dict传进去
 
                 # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
                 if config.IS_LOG_SPECTRAL:
@@ -217,9 +218,11 @@ def prepare_data(mode,train_or_test):
                     aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
                     print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
+                    print 'aim spk list:', [one.keys() for one in multi_spk_fea_list]
                     # print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
                     # print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
                     if mode=='global':
+                        all_spk=sorted(all_spk)
                         dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
                         dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}
                         yield all_spk,dict_spk_to_idx,dict_idx_to_spk,\
