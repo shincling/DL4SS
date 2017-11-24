@@ -223,10 +223,10 @@ def prepare_data(mode,train_or_test):
                         dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
                         dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}
                         yield all_spk,dict_spk_to_idx,dict_idx_to_spk,\
-                              aim_fea.shape[1],aim_fea.shape[2],query.shape[1],len(all_spk)
-                              #上面的是：语音长度、语音频率、视频分割多少帧
+                              aim_fea.shape[1],aim_fea.shape[2],32,len(all_spk)
+                              #上面的是：语音长度、语音频率、视频分割多少帧 TODO:后面把这个替换了query.shape[1]
                     elif mode=='once':
-                        yield (mix_speechs,mix_feas,aim_fea,aim_spkname,query,len(all_spk))
+                        yield (mix_speechs,mix_feas,aim_fea,aim_spkname,query,len(all_spk),multi_spk_fea_list)
                         # yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query,len(all_spk))
                     batch_idx=0
                     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
