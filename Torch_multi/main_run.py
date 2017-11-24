@@ -381,6 +381,7 @@ def main():
     # x=torch.arange(0,24).view(2,3,4)
     # y=torch.ones([2,4])
     att_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+    att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
     # att=ATTENTION(4,'align')
     # mask=att(x,y)#bs*max_len
 
@@ -388,10 +389,13 @@ def main():
     # del data
 
     optimizer = torch.optim.RMSprop([{'params':mix_hidden_layer_3d.parameters()},
+                                 {'params':mix_speech_multiEmbedding.parameters()},
+                                 {'params':mix_speech_classifier.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
                                  # {'params':query_video_layer.dense.parameters()},
                                  # {'params':query_video_layer.Linear.parameters()},
                                  {'params':att_layer.parameters()},
+                                 {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.01)
     if config.Load_param:
