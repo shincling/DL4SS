@@ -11,6 +11,7 @@ import config
 from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
 import torchvision.models as models
 import myNet
+from test_multi_labels_speech import multi_label_vector
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
@@ -414,6 +415,11 @@ def main():
 
             '''Speech self Sepration　语音自分离部分'''
             mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data[1])).cuda())
+            if config.Ground_truth:
+                y_spk_list=[one.keys() for one in train_data[-1]]
+                y_spk_tmp,y_map_tmp=multi_label_vector(y_spk_list,dict1)
+                mix_speech_output=Variable(torch.from_numpy(y_map_tmp)).cuda()
+
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=3) #torch.Float型的
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
 
@@ -446,7 +452,11 @@ def main():
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
+            print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print loss_multi_speech
+            optimizer.zero_grad()   # clear gradients for next train
+            loss_multi_speech.backward(retain_graph=True)         # backpropagation, compute gradients
+            optimizer.step()        # apply gradients
 
             1/0
 

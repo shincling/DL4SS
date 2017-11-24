@@ -87,6 +87,8 @@ UNK_LIST = aim_path+'/unk_list'
 Load_param = True
 Save_param = True
 # Load_param = False
+# 是否在训练阶段用Ground Truth的分类结果
+Ground_truth = True
 #query是否经过memory的再次更新
 Comm_with_Memory=True
 Comm_with_Memory=False
@@ -103,7 +105,7 @@ MAX_EPOCH = 250
 # epoch size
 EPOCH_SIZE = 50
 # batch size
-BATCH_SIZE = 16
+BATCH_SIZE = 2
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate
@@ -115,9 +117,11 @@ FRAME_SHIFT = int(0.016 * FRAME_RATE)
 # 是否shuffle_batch
 SHUFFLE_BATCH = True
 # 设定最小混叠说话人数，Minimum number of mixed speakers for training
-MIN_MIX = 1
+MIN_MIX = 2
 # 设定最大混叠说话人数，Maximum number of mixed speakers for training
 MAX_MIX = 5
+# 设定speech multi acc的阈值alpha
+ALPHA = 0.5
 # 设置训练/开发/验证模型的最大语音长度(秒)
 MAX_LEN = 5
 MAX_LEN = FRAME_RATE*MAX_LEN
