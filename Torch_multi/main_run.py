@@ -268,7 +268,8 @@ class SPEECH_EMBEDDING(nn.Module):
         self.num_all=num_labels
         self.emb_size=embedding_size
         self.max_num_out=max_num_channel
-        self.layer=nn.Embedding(num_labels,embedding_size,padding_idx=-1)
+        # self.layer=nn.Embedding(num_labels,embedding_size,padding_idx=-1)
+        self.layer=nn.Embedding(num_labels,embedding_size)
 
     def forward(self, input):
         input_float=input
@@ -424,8 +425,9 @@ def main():
                 y_spk_tmp,y_map_tmp=multi_label_vector(y_spk_list,dict1)
                 mix_speech_output=Variable(torch.from_numpy(y_map_tmp)).cuda()
 
-            top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=3) #torch.Float型的
+            top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
+            print mix_speech_multiEmbs
 
             #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
             #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
@@ -434,13 +436,13 @@ def main():
             mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
             att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
             att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
-            print att_multi_speech.size()
+            # print att_multi_speech.size()
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
-            print att_multi_speech.size()
+            # print att_multi_speech.size()
             multi_mask=att_multi_speech
 
             x_input_map=Variable(torch.from_numpy(train_data[1])).cuda()
-            print x_input_map.size()
+            # print x_input_map.size()
             x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
             predict_multi_map=multi_mask*x_input_map_multi
 
@@ -448,11 +450,7 @@ def main():
             batch_spk_multi_dict=train_data[-1]
             for idx,sample in enumerate(batch_spk_multi_dict):
                 for spk in sample.keys():
-                    print sample[spk].shape
-                    try:
-                        y_multi_map[idx,dict1[spk]]=sample[spk]
-                    except:
-                        pass
+                    y_multi_map[idx,dict1[spk]]=sample[spk]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
@@ -461,6 +459,11 @@ def main():
             optimizer.zero_grad()   # clear gradients for next train
             loss_multi_speech.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
+
+            if 1 and epoch_idx>20 and epoch_idx%5==0 and batch_idx==config.EPOCH_SIZE-1:
+                torch.save(mix_speech_multiEmbedding.state_dict(),'param_mix_speech_emblayer_{}'.format(epoch_idx))
+                torch.save(mix_hidden_layer_3d.state_dict(),'param_mix_speech_hidden3d_{}'.format(epoch_idx))
+                torch.save(att_speech_layer.state_dict(),'param_mix_speech_attlayer_{}'.format(epoch_idx))
 
             1/0
 
