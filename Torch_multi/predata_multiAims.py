@@ -80,6 +80,7 @@ def prepare_data(mode,train_or_test):
     '''
     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
     mix_feas=[]#应该是bs,n_frames,n_fre这么多
+    mix_phase=[]#应该是bs,n_frames,n_fre这么多
     aim_fea=[]#应该是bs,n_frames,n_fre这么多
     aim_spkid=[] #np.zeros(config.BATCH_SIZE)
     aim_spkname=[] #np.zeros(config.BATCH_SIZE)
@@ -214,11 +215,15 @@ def prepare_data(mode,train_or_test):
 
                 mix_speechs[batch_idx,:]=wav_mix
                 mix_feas.append(feature_mix)
+                mix_phase.append(np.transpose(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
+                                                                                     config.FRAME_SHIFT,))
+)
 
                 batch_idx+=1
                 print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
                 if batch_idx==config.BATCH_SIZE: #填满了一个batch
                     mix_feas=np.array(mix_feas)
+                    mix_phase=np.array(mix_phase)
                     aim_fea=np.array(aim_fea)
                     # aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
@@ -236,6 +241,7 @@ def prepare_data(mode,train_or_test):
                     elif mode=='once':
                         yield {'mix_wav':mix_speechs,
                                'mix_feas':mix_feas,
+                               'mix_phase':mix_phase,
                                'aim_fea':aim_fea,
                                'aim_spkname':aim_spkname,
                                'query':query,
