@@ -38,7 +38,7 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
     sample_idx=0 #代表一个batch里的依次第几个
     for each_y,each_pre,each_trueVector,spk_name in zip(y_multi_map,predict_multi_map,y_map_gtruth,train_data['aim_spkname']):
         for idx,one_cha in enumerate(each_trueVector):
-            if one_cha:
+            if one_cha: #　如果此刻这个候选人通道是开启的
                 this_spk=dict_idx2spk[idx]
                 _mix_spec=train_data['mix_phase'][sample_idx]
                 y_true_map=each_y[idx].data.cpu().numpy()
@@ -353,7 +353,7 @@ def main():
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     global_para=spk_global_gen.next()
     print global_para
-    spk_all_list,dict1,dict2,mix_speech_len,speech_fre,total_frames,spk_num_total=global_para
+    spk_all_list,dict_spk2idx,dict_idx2spk,mix_speech_len,speech_fre,total_frames,spk_num_total=global_para
     del spk_global_gen
     num_labels=len(spk_all_list)
 
@@ -456,7 +456,7 @@ def main():
             mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
             #从数据里得到ground truth的说话人名字和vector
             y_spk_list=[one.keys() for one in train_data['multi_spk_fea_list']]
-            y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict1)
+            y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
             # 如果训练阶段使用Ground truth的分离结果作为判别
             if config.Ground_truth:
                 mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
@@ -485,12 +485,12 @@ def main():
             batch_spk_multi_dict=train_data['multi_spk_fea_list']
             for idx,sample in enumerate(batch_spk_multi_dict):
                 for spk in sample.keys():
-                    y_multi_map[idx,dict1[spk]]=sample[spk]
+                    y_multi_map[idx,dict_spk2idx[spk]]=sample[spk]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
-            bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict2,train_data)
+            bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
 
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print loss_multi_speech
@@ -516,7 +516,7 @@ def main():
             if config.Comm_with_Memory:
                 #TODO:query更新这里要再检查一遍，最好改成函数，现在有点丑陋。
                 aim_idx_FromVideoQuery=torch.max(query_video_output,dim=1)[1] #返回最大的参数
-                aim_spk_batch=[dict2[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
+                aim_spk_batch=[dict_idx2spk[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
                 print 'Query class result:',aim_spk_batch,'p:',query_video_output.data.cpu().numpy()
 
                 for idx,aim_spk in enumerate(aim_spk_batch):
@@ -524,7 +524,7 @@ def main():
                     memory.add_video(aim_spk,query_video_hidden[idx])
                 query_video_hidden=query_video_hidden+Variable(batch_vector)
                 query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
-                y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data['aim_spkname']])),requires_grad=False).cuda()
+                y_class=Variable(torch.from_numpy(np.array([dict_spk2idx[spk] for spk in train_data['aim_spkname']])),requires_grad=False).cuda()
                 print y_class
                 loss_video_class=loss_query_class(query_video_output,y_class)
 

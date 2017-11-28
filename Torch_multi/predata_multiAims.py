@@ -253,11 +253,13 @@ def prepare_data(mode,train_or_test):
                     batch_idx=0
                     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
                     mix_feas=[]#应该是bs,n_frames,n_fre这么多
+                    mix_phase=[]
                     aim_fea=[]#应该是bs,n_frames,n_fre这么多
                     aim_spkid=[] #np.zeros(config.BATCH_SIZE)
                     aim_spkname=[]
                     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
                     multi_spk_fea_list=[]
+                    multi_spk_wav_list=[]
 
         else:
             raise ValueError('No such dataset:{} for Video'.format(config.DATASET))
