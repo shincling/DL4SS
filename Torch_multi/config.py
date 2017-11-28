@@ -105,7 +105,7 @@ MAX_EPOCH = 250
 # epoch size
 EPOCH_SIZE = 50
 # batch size
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate

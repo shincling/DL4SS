@@ -14,6 +14,8 @@ import subprocess
 import Image
 
 channel_first=config.channel_first
+np.random.seed(1)#设定种子
+random.seed(1)
 
 def split_forTrainDevTest(spk_list,train_or_test):
     '''为了保证一个统一的训练和测试的划分标准，不得不用通用的一些方法来限定一下,
@@ -155,7 +157,7 @@ def prepare_data(mode,train_or_test):
                     if k==0:#第一个作为目标
                         aim_spkname.append(aim_spk_k[0])
                         aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
-                        #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下
+                        #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
                         aim_spk_speech=signal
                         aim_spkid.append(aim_spk)
                         wav_mix=signal
@@ -216,9 +218,7 @@ def prepare_data(mode,train_or_test):
                 mix_speechs[batch_idx,:]=wav_mix
                 mix_feas.append(feature_mix)
                 mix_phase.append(np.transpose(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                     config.FRAME_SHIFT,))
-)
-
+                                                                                     config.FRAME_SHIFT,)))
                 batch_idx+=1
                 print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
                 if batch_idx==config.BATCH_SIZE: #填满了一个batch

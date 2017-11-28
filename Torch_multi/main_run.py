@@ -20,6 +20,7 @@ import soundfile as sf
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
+random.seed(1)
 # stout=sys.stdout
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
