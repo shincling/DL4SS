@@ -85,6 +85,7 @@ def prepare_data(mode,train_or_test):
     aim_spkname=[] #np.zeros(config.BATCH_SIZE)
     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
     multi_spk_fea_list=[] #应该是bs个dict，每个dict里是说话人name为key，clean_fea为value的字典
+    multi_spk_wav_list=[] #应该是bs个dict，每个dict里是说话人name为key，clean_fea为value的字典
 
     #目标数据集的总data，底下应该存放分目录的文件夹，每个文件夹应该名字是sX
     data_path=config.aim_path+'/data'
@@ -109,8 +110,9 @@ def prepare_data(mode,train_or_test):
                 mix_len=0
                 mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
                 aim_spk_k=random.sample(all_spk,mix_k)#本次混合的候选人
-                multi_dict_this_sample={}
-                
+                multi_fea_dict_this_sample={}
+                multi_wav_dict_this_sample={}
+
                 for k,spk in enumerate(aim_spk_k):
                     #若是没有出现在整体列表内就注册进去,且第一次的时候读取所有的samples的名字
                     if spk not in spk_samples_list:
@@ -160,7 +162,8 @@ def prepare_data(mode,train_or_test):
                                                                                     config.FRAME_SHIFT, window=config.WINDOWS)))
                         aim_fea.append(aim_fea_clean)
                         # 把第一个人顺便也注册进去混合dict里
-                        multi_dict_this_sample[spk]=aim_fea_clean
+                        multi_fea_dict_this_sample[spk]=aim_fea_clean
+                        multi_wav_dict_this_sample[spk]=signal
 
                         #视频处理部分，为了得到query
                         '''
@@ -193,9 +196,11 @@ def prepare_data(mode,train_or_test):
                         #　这个说话人的语音
                         some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                        config.FRAME_SHIFT, window=config.WINDOWS)))
-                        multi_dict_this_sample[spk]=some_fea_clean
+                        multi_fea_dict_this_sample[spk]=some_fea_clean
+                        multi_wav_dict_this_sample[spk]=signal
 
-                multi_spk_fea_list.append(multi_dict_this_sample) #把这个sample的dict传进去
+                multi_spk_fea_list.append(multi_fea_dict_this_sample) #把这个sample的dict传进去
+                multi_spk_wav_list.append(multi_wav_dict_this_sample) #把这个sample的dict传进去
 
                 # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
                 if config.IS_LOG_SPECTRAL:
@@ -215,7 +220,7 @@ def prepare_data(mode,train_or_test):
                 if batch_idx==config.BATCH_SIZE: #填满了一个batch
                     mix_feas=np.array(mix_feas)
                     aim_fea=np.array(aim_fea)
-                    aim_spkid=np.array(aim_spkid)
+                    # aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
                     print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
                     print 'aim spk list:', [one.keys() for one in multi_spk_fea_list]
@@ -229,8 +234,16 @@ def prepare_data(mode,train_or_test):
                               aim_fea.shape[1],aim_fea.shape[2],32,len(all_spk)
                               #上面的是：语音长度、语音频率、视频分割多少帧 TODO:后面把这个替换了query.shape[1]
                     elif mode=='once':
-                        yield (mix_speechs,mix_feas,aim_fea,aim_spkname,query,len(all_spk),multi_spk_fea_list)
-                        # yield (mix_speechs,mix_feas,aim_fea,aim_spkid,query,len(all_spk))
+                        yield {'mix_wav':mix_speechs,
+                               'mix_feas':mix_feas,
+                               'aim_fea':aim_fea,
+                               'aim_spkname':aim_spkname,
+                               'query':query,
+                               'num_all_spk':len(all_spk),
+                               'multi_spk_fea_list':multi_spk_fea_list,
+                               'multi_spk_wav_list':multi_spk_wav_list
+                               }
+
                     batch_idx=0
                     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
                     mix_feas=[]#应该是bs,n_frames,n_fre这么多

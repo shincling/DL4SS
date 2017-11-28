@@ -9,9 +9,12 @@ import random
 import time
 import config
 from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
-import torchvision.models as models
 import myNet
 from test_multi_labels_speech import multi_label_vector
+import os
+import shutil
+# import matlab
+# import matlab.engine
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
@@ -19,6 +22,11 @@ torch.manual_seed(1)
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
 # logfile=config.LOG_FILE_PRE
+
+def bss_eval(predict_multi_map,y_multi_map,multi_mask):
+    MAT_ENG=matlab.engine.start_matlab()
+    MAT_ENG.BSS_EVAL_multi()
+    pass
 
 def print_memory_state(memory):
     print '\n memory states:'
@@ -415,19 +423,20 @@ def main():
             train_data=train_data_gen.next()
 
             '''混合语音len,fre,Emb 3D表示层'''
-            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data[1])).cuda())
+            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
             # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
 
             '''Speech self Sepration　语音自分离部分'''
-            mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data[1])).cuda())
+            mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
+            #从数据里得到ground truth的说话人名字和vector
+            y_spk_list=[one.keys() for one in train_data['multi_spk_fea_list']]
+            y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict1)
+            # 如果训练阶段使用Ground truth的分离结果作为判别
             if config.Ground_truth:
-                y_spk_list=[one.keys() for one in train_data[-1]]
-                y_spk_tmp,y_map_tmp=multi_label_vector(y_spk_list,dict1)
-                mix_speech_output=Variable(torch.from_numpy(y_map_tmp)).cuda()
+                mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
 
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
-            print mix_speech_multiEmbs
 
             #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
             #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
@@ -441,19 +450,29 @@ def main():
             # print att_multi_speech.size()
             multi_mask=att_multi_speech
 
-            x_input_map=Variable(torch.from_numpy(train_data[1])).cuda()
+            x_input_map=Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
             # print x_input_map.size()
             x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
             predict_multi_map=multi_mask*x_input_map_multi
 
             y_multi_map=np.zeros([config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre],dtype=np.float32)
-            batch_spk_multi_dict=train_data[-1]
+            batch_spk_multi_dict=train_data['multi_spk_fea_list']
             for idx,sample in enumerate(batch_spk_multi_dict):
                 for spk in sample.keys():
                     y_multi_map[idx,dict1[spk]]=sample[spk]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
+            # 对于每个sample
+            # for each_y,each_pre,each_trueVector in zip(y_multi_map,predict_multi_map,y_map_gtruth):
+            #     if config.Out_Sep_Result:
+            #         dst='batch_output'
+            #         if os.path.exists(dst):
+            #             print " cleanup: " + dst + "/"
+            #             shutil.rmtree(dst)
+            #         os.makedirs(dst)
+            # bss_eval(predict_multi_map,y_multi_map,multi_mask)
+
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print loss_multi_speech
             optimizer.zero_grad()   # clear gradients for next train
@@ -486,14 +505,14 @@ def main():
                     memory.add_video(aim_spk,query_video_hidden[idx])
                 query_video_hidden=query_video_hidden+Variable(batch_vector)
                 query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
-                y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data[3]])),requires_grad=False).cuda()
+                y_class=Variable(torch.from_numpy(np.array([dict1[spk] for spk in train_data['aim_spkname']])),requires_grad=False).cuda()
                 print y_class
                 loss_video_class=loss_query_class(query_video_output,y_class)
 
             mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
 
-            predict_map=mask*Variable(torch.from_numpy(train_data[1])).cuda()
-            y_map=Variable(torch.from_numpy(train_data[2])).cuda()
+            predict_map=mask*Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
+            y_map=Variable(torch.from_numpy(train_data['aim_fea'])).cuda()
             print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             loss_all=loss_func(predict_map,y_map)
             if 0 and config.Save_param:

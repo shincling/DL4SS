@@ -143,6 +143,7 @@ IS_LOG_SPECTRAL = False
 ADD_BGD_NOISE = False
 BGD_NOISE_WAV = None
 BGD_NOISE_FILE = 'Dataset_Multi/BGD_150203_010_STR.CH1.wav'
+Out_Sep_Result=True
 
 if MODE==2:
     '''Params for Image'''
