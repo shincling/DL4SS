@@ -162,7 +162,7 @@ def prepare_data(mode,train_or_test):
                         aim_spkid.append(aim_spk)
                         wav_mix=signal
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
-                                                                                    config.FRAME_SHIFT, window=config.WINDOWS)))
+                                                                                    config.FRAME_SHIFT)))
                         aim_fea.append(aim_fea_clean)
                         # 把第一个人顺便也注册进去混合dict里
                         multi_fea_dict_this_sample[spk]=aim_fea_clean
@@ -198,7 +198,7 @@ def prepare_data(mode,train_or_test):
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
                         some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
-                                                                                       config.FRAME_SHIFT, window=config.WINDOWS)))
+                                                                                       config.FRAME_SHIFT,)))
                         multi_fea_dict_this_sample[spk]=some_fea_clean
                         multi_wav_dict_this_sample[spk]=signal
 

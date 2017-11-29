@@ -38,20 +38,27 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
     # 对于每个sample
     sample_idx=0 #代表一个batch里的依次第几个
     for each_y,each_pre,each_trueVector,spk_name in zip(y_multi_map,predict_multi_map,y_map_gtruth,train_data['aim_spkname']):
+        _mix_spec=train_data['mix_phase'][sample_idx]
+        phase_mix = np.angle(_mix_spec)
         for idx,one_cha in enumerate(each_trueVector):
             if one_cha: #　如果此刻这个候选人通道是开启的
                 this_spk=dict_idx2spk[idx]
-                _mix_spec=train_data['mix_phase'][sample_idx]
                 y_true_map=each_y[idx].data.cpu().numpy()
                 y_pre_map=each_pre[idx].data.cpu().numpy()
-                phase_mix = np.angle(_mix_spec)
                 _pred_spec = y_pre_map * np.exp(1j * phase_mix)
                 _genture_spec = y_true_map * np.exp(1j * phase_mix)
-                wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT,window=config.WINDOWS)
-                wav_genTrue=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,window=config.WINDOWS)
+                wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT)
+                wav_genTrue=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
                 min_len = np.min((len(train_data['multi_spk_wav_list'][sample_idx][this_spk]), len(wav_pre)))
                 sf.write('batch_output/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
                 sf.write('batch_output/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+        _mix_spec=train_data['mix_phase'][sample_idx]
+        phase_mix = np.angle(_mix_spec)
+        abs_mix=np.abs(_mix_spec)
+        _genture_spec = abs_mix * np.exp(1j * phase_mix)
+        # _genture_spec = _mix_spec
+        wav_genTrue_mix=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
+        sf.write('batch_output/{}_True_mix_gen.wav'.format(sample_idx),wav_genTrue_mix,config.FRAME_RATE,)
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),train_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
