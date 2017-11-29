@@ -52,13 +52,10 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
                 min_len = np.min((len(train_data['multi_spk_wav_list'][sample_idx][this_spk]), len(wav_pre)))
                 sf.write('batch_output/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
                 sf.write('batch_output/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
-        _mix_spec=train_data['mix_phase'][sample_idx]
-        phase_mix = np.angle(_mix_spec)
-        abs_mix=np.abs(_mix_spec)
-        _genture_spec = abs_mix * np.exp(1j * phase_mix)
-        # _genture_spec = _mix_spec
-        wav_genTrue_mix=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
-        sf.write('batch_output/{}_True_mix_gen.wav'.format(sample_idx),wav_genTrue_mix,config.FRAME_RATE,)
+        # abs_mix=np.abs(_mix_spec)
+        # _genture_spec = abs_mix * np.exp(1j * phase_mix)
+        # wav_genTrue_mix=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
+        # sf.write('batch_output/{}_True_mix_gen.wav'.format(sample_idx),wav_genTrue_mix,config.FRAME_RATE,)
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),train_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
@@ -276,7 +273,9 @@ class MIX_SPEECH(nn.Module):
         x,hidden=self.layer(x)
         x=x.contiguous()
         x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
-        out=F.tanh(self.Linear(x))
+        # out=F.tanh(self.Linear(x))
+        out=self.Linear(x)
+        # out=F.relu(out)
         out=out.view(config.BATCH_SIZE,self.mix_speech_len,self.input_fre,-1)
         # print 'Mix speech output shape:',out.size()
         return out
@@ -431,7 +430,7 @@ def main():
     # del data_generator
     # del data
 
-    optimizer = torch.optim.RMSprop([{'params':mix_hidden_layer_3d.parameters()},
+    optimizer = torch.optim.Adagrad([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
                                  {'params':mix_speech_classifier.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
@@ -440,12 +439,13 @@ def main():
                                  {'params':att_layer.parameters()},
                                  {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.01)
-    if config.Load_param:
+                                 ], lr=0.02)
+    if 0 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
+    # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
     loss_query_class=torch.nn.CrossEntropyLoss()
 
     print '''Begin to calculate.'''
@@ -483,11 +483,15 @@ def main():
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
             # print att_multi_speech.size()
             multi_mask=att_multi_speech
+            top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,num_labels,1,1).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
+            multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
 
             x_input_map=Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
             # print x_input_map.size()
             x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
             predict_multi_map=multi_mask*x_input_map_multi
+            # print multi_mask
+            print predict_multi_map
 
             y_multi_map=np.zeros([config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre],dtype=np.float32)
             batch_spk_multi_dict=train_data['multi_spk_fea_list']
@@ -498,12 +502,13 @@ def main():
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
-            bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
+            if batch_idx==config.EPOCH_SIZE-1:
+                bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
 
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
-            print loss_multi_speech
+            print 'loss:',loss_multi_speech.data.cpu().numpy()
             optimizer.zero_grad()   # clear gradients for next train
-            loss_multi_speech.backward(retain_graph=True)         # backpropagation, compute gradients
+            loss_multi_speech.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
             if 1 and epoch_idx>20 and epoch_idx%5==0 and batch_idx==config.EPOCH_SIZE-1:
@@ -511,6 +516,17 @@ def main():
                 torch.save(mix_hidden_layer_3d.state_dict(),'param_mix_speech_hidden3d_{}'.format(epoch_idx))
                 torch.save(att_speech_layer.state_dict(),'param_mix_speech_attlayer_{}'.format(epoch_idx))
 
+            # print 'Parameter history:'
+            # for pa_gen in [{'params':mix_hidden_layer_3d.parameters()},
+            #                                  {'params':mix_speech_multiEmbedding.parameters()},
+            #                                  {'params':mix_hidden_layer_3d.parameters()},
+            #                                  {'params':att_speech_layer.parameters()},
+            #                                  {'params':att_layer.parameters()},
+            #                                  {'params':mix_speech_classifier.parameters()},
+            #                                  ]:
+            #     print pa_gen['params'].next().data.cpu().numpy()[0]
+
+            continue
             1/0
 
             '''视频刺激 Sepration　部分'''
