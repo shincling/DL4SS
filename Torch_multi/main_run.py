@@ -260,7 +260,7 @@ class MIX_SPEECH(nn.Module):
         super(MIX_SPEECH,self).__init__()
         self.input_fre=input_fre
         self.mix_speech_len=mix_speech_len
-        self.layer=nn.LSTM(
+        self.layer=nn.GRU(
             input_size=input_fre,
             hidden_size=config.HIDDEN_UNITS,
             num_layers=config.NUM_LAYERS,
@@ -275,6 +275,7 @@ class MIX_SPEECH(nn.Module):
         x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
         # out=F.tanh(self.Linear(x))
         out=self.Linear(x)
+        out=F.tanh(out)
         # out=F.relu(out)
         out=out.view(config.BATCH_SIZE,self.mix_speech_len,self.input_fre,-1)
         # print 'Mix speech output shape:',out.size()
@@ -430,7 +431,7 @@ def main():
     # del data_generator
     # del data
 
-    optimizer = torch.optim.Adagrad([{'params':mix_hidden_layer_3d.parameters()},
+    optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
                                  {'params':mix_speech_classifier.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
@@ -439,7 +440,7 @@ def main():
                                  {'params':att_layer.parameters()},
                                  {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.02)
+                                 ], lr=0.0002)
     if 0 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
@@ -458,6 +459,7 @@ def main():
 
             '''混合语音len,fre,Emb 3D表示层'''
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
+            print mix_speech_hidden
             # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
 
             '''Speech self Sepration　语音自分离部分'''
@@ -477,7 +479,8 @@ def main():
             mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
             mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
             mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-            att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+            # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+            att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
             att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
             # print att_multi_speech.size()
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
@@ -490,8 +493,8 @@ def main():
             # print x_input_map.size()
             x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
             predict_multi_map=multi_mask*x_input_map_multi
-            # print multi_mask
-            print predict_multi_map
+            print multi_mask
+            # print predict_multi_map
 
             y_multi_map=np.zeros([config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre],dtype=np.float32)
             batch_spk_multi_dict=train_data['multi_spk_fea_list']
@@ -502,6 +505,12 @@ def main():
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
+            #各通道和为１的loss部分,应该可以更多的带来差异
+            y_sum_map=Variable(torch.ones(config.BATCH_SIZE,mix_speech_len,speech_fre)).cuda()
+            predict_sum_map=torch.sum(predict_multi_map,1)
+            loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
+            loss_multi_speech=loss_multi_speech+loss_multi_sum_speech
+
             if batch_idx==config.EPOCH_SIZE-1:
                 bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
 
@@ -511,7 +520,7 @@ def main():
             loss_multi_speech.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
-            if 1 and epoch_idx>20 and epoch_idx%5==0 and batch_idx==config.EPOCH_SIZE-1:
+            if 0 and epoch_idx>20 and epoch_idx%5==0 and batch_idx==config.EPOCH_SIZE-1:
                 torch.save(mix_speech_multiEmbedding.state_dict(),'param_mix_speech_emblayer_{}'.format(epoch_idx))
                 torch.save(mix_hidden_layer_3d.state_dict(),'param_mix_speech_hidden3d_{}'.format(epoch_idx))
                 torch.save(att_speech_layer.state_dict(),'param_mix_speech_attlayer_{}'.format(epoch_idx))
