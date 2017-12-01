@@ -103,9 +103,9 @@ AUGMENT_DATA = False
 # set the max epoch of training
 MAX_EPOCH = 250
 # epoch size
-EPOCH_SIZE = 150
+EPOCH_SIZE = 300
 # batch size
-BATCH_SIZE = 2
+BATCH_SIZE = 8
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate
@@ -119,7 +119,7 @@ SHUFFLE_BATCH = True
 # 设定最小混叠说话人数，Minimum number of mixed speakers for training
 MIN_MIX = 2
 # 设定最大混叠说话人数，Maximum number of mixed speakers for training
-MAX_MIX = 2
+MAX_MIX = 3
 # 设定speech multi acc的阈值alpha
 ALPHA = 0.5
 # 设置训练/开发/验证模型的最大语音长度(秒)
