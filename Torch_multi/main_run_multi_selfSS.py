@@ -25,6 +25,7 @@ random.seed(1)
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
 # logfile=config.LOG_FILE_PRE
+test_all_outputchannel=0
 
 def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data):
     #评测和结果输出部分
@@ -50,6 +51,8 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
                 wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT)
                 wav_genTrue=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
                 min_len = np.min((len(train_data['multi_spk_wav_list'][sample_idx][this_spk]), len(wav_pre)))
+                if test_all_outputchannel:
+                    min_len =  len(wav_pre)
                 sf.write('batch_output/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
                 sf.write('batch_output/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
         # abs_mix=np.abs(_mix_spec)
@@ -441,9 +444,12 @@ def main():
                                  {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.0002)
-    if 0 and config.Load_param:
+    if 1 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix_speech_hidden3d_220'))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix_speech_emblayer_220'))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix_speech_attlayer_220'))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -469,6 +475,9 @@ def main():
             # 如果训练阶段使用Ground truth的分离结果作为判别
             if config.Ground_truth:
                 mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
+                if test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
+                    mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
+                    y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
 
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
@@ -536,7 +545,7 @@ def main():
             #                                  ]:
             #     print pa_gen['params'].next().data.cpu().numpy()[0]
 
-            continue
+            # continue
             1/0
 
             '''视频刺激 Sepration　部分'''
