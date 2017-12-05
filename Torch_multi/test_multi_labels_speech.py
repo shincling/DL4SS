@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config
-from predata_multiSpeechTest import prepare_data,prepare_datasize,prepare_data_fake
+from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
 import torchvision.models as models
 import myNet
 
@@ -240,7 +240,7 @@ class MIX_SPEECH_classifier(nn.Module):
         self.layer=nn.LSTM(
             input_size=input_fre,
             hidden_size=config.HIDDEN_UNITS,
-            num_layers=config.NUM_LAYERS,
+            num_layers=3,
             batch_first=True,
             bidirectional=True
         )
@@ -271,7 +271,7 @@ def multi_label_vector(x,dict_name2idx):
     for sample in x:
         tmp_vector=[0 for _ in range(length)]
         line=[]
-        for spk in sample:
+        for spk in sample.keys():
             line.append(dict_name2idx[spk])
             for l in line:
                 tmp_vector[l]=1
@@ -309,55 +309,20 @@ def main():
     print '*' * 80
 
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
-    spk_all_list,dict1,dict2=spk_global_gen.next()
-    print 'dict spk to idx:',dict1
+    global_para=spk_global_gen.next()
+    print global_para
+    spk_all_list,dict_spk2idx,dict_idx2spk,mix_speech_len,speech_fre,total_frames,spk_num_total=global_para
     del spk_global_gen
     num_labels=len(spk_all_list)
 
-    # data_generator=prepare_data('once','train')
-    data_generator=prepare_data_fake(train_or_test='train') #写一个假的数据生成，可以用来写模型先
-
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
-    datasize=prepare_datasize(data_generator)
-    mix_speech_len,speech_fre,total_frames,spk_num_total,video_size=datasize
-    data=data_generator.next()
     print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
 
-    # This part is to build the 3D mix speech embedding maps.
-    # mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
     mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     print mix_speech_class
-    # mix_speech_output=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])))
 
-    # This part is to conduct the video inputs.
-    # query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
-    # print query_video_layer
-    # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
-
-    # This part is to conduct the memory.
-    # hidden_size=(config.HIDDEN_UNITS)
-    # memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
-    # memory.register_spklist(spk_all_list) #把spk_list注册进空的memory里面去
-
-    # Memory function test.
-    # print 'memory all spkid:',memory.get_all_spkid()
-    # print memory.get_image_num('Unknown_id')
-    # print memory.get_video_vector('Unknown_id')
-    # print memory.add_video('Unknown_id',Variable(torch.ones(300)))
-
-    # This part is to test the ATTENTION methond from query(~) to mix_speech
-    # x=torch.arange(0,24).view(2,3,4)
-    # y=torch.ones([2,4])
-    # att_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-    # att=ATTENTION(4,'align')
-    # mask=att(x,y)#bs*max_len
-
-
-
-    del data_generator,data,datasize
-
-    if config.Load_param:
+    if 0 and config.Load_param:
         mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
 
     optimizer = torch.optim.Adagrad([{'params':mix_speech_class.parameters()},
@@ -366,7 +331,7 @@ def main():
                                  # {'params':query_video_layer.Linear.parameters()},
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.02)
+                                 ], lr=0.00002)
     # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
     loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -378,9 +343,9 @@ def main():
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
-            mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data[1])).cuda())
+            mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
 
-            y_spk,y_map=multi_label_vector(train_data[-1],dict1)
+            y_spk,y_map=multi_label_vector(train_data['multi_spk_fea_list'],dict_spk2idx)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
             y_out_batch=mix_speech.data.cpu().numpy()
             acc1,acc2,all_num_batch,all_line_batch=count_multi_acc(y_out_batch,y_spk)
@@ -389,15 +354,16 @@ def main():
 
             # print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             for i in range(config.BATCH_SIZE):
-                print 'aim:{}-->{},predict:{}'.format(train_data[-1][i],y_spk[i],mix_speech.data.cpu().numpy()[i])
+                print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
+                print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{}'.format(all_num_batch,acc1,all_line_batch,acc2)
-            # loss=loss_func(mix_speech,y_map)
-            # optimizer.zero_grad()   # clear gradients for next train
-            # loss.backward()         # backpropagation, compute gradients
-            # optimizer.step()        # apply gradients
+            loss=loss_func(mix_speech,y_map)
+            optimizer.zero_grad()   # clear gradients for next train
+            loss.backward()         # backpropagation, compute gradients
+            optimizer.step()        # apply gradients
 
-        # if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
-        #     torch.save(mix_speech_class.state_dict(), 'params/param_speech_multilabel_epoch{}'.format(epoch_idx))
+        if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
+            torch.save(mix_speech_class.state_dict(), 'params/param_speech_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
 
             # Print the Params history , that it proves well.
             # print 'Parameter history:'
