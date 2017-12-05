@@ -407,7 +407,8 @@ def main():
 
 
     # This part is to conduct the video inputs.
-    query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
+    # query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
+    query_video_layer=None
     # print query_video_layer
     # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
 
@@ -444,7 +445,7 @@ def main():
                                  {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.0002)
-    if 1 and config.Load_param:
+    if 0 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix_speech_hidden3d_220'))
@@ -531,9 +532,9 @@ def main():
             optimizer.step()        # apply gradients
 
             if 1 and epoch_idx>20 and epoch_idx%10==0 and batch_idx==config.EPOCH_SIZE-1:
-                torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_speech_emblayer_{}'.format(epoch_idx))
-                torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_speech_hidden3d_{}'.format(epoch_idx))
-                torch.save(att_speech_layer.state_dict(),'params/param_mix_speech_attlayer_{}'.format(epoch_idx))
+                torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
+                torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
+                torch.save(att_speech_layer.state_dict(),'params/param_mix_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
 
             # print 'Parameter history:'
             # for pa_gen in [{'params':mix_hidden_layer_3d.parameters()},
