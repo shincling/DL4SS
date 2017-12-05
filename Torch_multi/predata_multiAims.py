@@ -157,10 +157,10 @@ def prepare_data(mode,train_or_test):
 
                     if k==0:#第一个作为目标
                         aim_spkname.append(aim_spk_k[0])
-                        aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
+                        # aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
                         aim_spk_speech=signal
-                        aim_spkid.append(aim_spk)
+                        aim_spkid.append(aim_spkname)
                         wav_mix=signal
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                     config.FRAME_SHIFT)))
@@ -302,10 +302,10 @@ def prepare_data(mode,train_or_test):
 
                     if k==0:#第一个作为目标
                         aim_spkname.append(aim_spk_k[0])
-                        aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
+                        # aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
                         aim_spk_speech=signal
-                        aim_spkid.append(aim_spk)
+                        aim_spkid.append(aim_spkname)
                         wav_mix=signal
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                     config.FRAME_SHIFT)))
