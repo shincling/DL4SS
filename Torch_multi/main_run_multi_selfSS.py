@@ -17,6 +17,8 @@ import librosa
 import soundfile as sf
 # import matlab
 # import matlab.engine
+# from separation import bss_eval_sources
+import bss_test
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
@@ -55,10 +57,6 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
                     min_len =  len(wav_pre)
                 sf.write('batch_output/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
                 sf.write('batch_output/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
-        # abs_mix=np.abs(_mix_spec)
-        # _genture_spec = abs_mix * np.exp(1j * phase_mix)
-        # wav_genTrue_mix=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
-        # sf.write('batch_output/{}_True_mix_gen.wav'.format(sample_idx),wav_genTrue_mix,config.FRAME_RATE,)
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),train_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
@@ -458,7 +456,11 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
+        if epoch_idx>0:
+            print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
+        SDR_SUM=np.array([])
         print_memory_state(memory.memory)
+        print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
@@ -524,6 +526,8 @@ def main():
 
             if batch_idx==config.EPOCH_SIZE-1:
                 bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
+                SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+
 
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print 'loss:',loss_multi_speech.data.cpu().numpy()
