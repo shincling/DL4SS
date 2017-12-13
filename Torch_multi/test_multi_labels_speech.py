@@ -295,13 +295,31 @@ def multi_label_vector(x,dict_name2idx):
     y_map=np.array(y_aim,dtype=np.float32)
     return y_spk,y_map
 
-def count_multi_acc(y_out_batch,true_spk,alpha=0.5):
+def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
     len_vector=y_out_batch.shape[1]
     all_num=y_out_batch.flatten().shape[0]
     all_line=y_out_batch.shape[0]
     right_num=0
     right_line=0
-    y_out_batch=np.int32(y_out_batch>alpha)
+    recall_rate=None
+    if top_k_num:
+        recall=0.
+        top_k_idx=np.flip(np.argsort(y_out_batch),1)[:,:top_k_num]
+        print 'top k predicted:',top_k_idx
+        print 'top k real:',true_spk
+        for pre,true in zip(top_k_idx,true_spk):
+            for one_pre in pre:
+                if one_pre in true:
+                    recall+=1
+        recall_rate=recall/np.array(true_spk).size
+        print 'recall rate:',recall_rate
+
+        y_out_batch=np.zeros_like(y_out_batch)
+        for k,yy in enumerate(top_k_idx):
+            y_out_batch[k,yy]=1
+    else:
+        y_out_batch=np.int32(y_out_batch>alpha)
+
     for line_idx,line in enumerate(true_spk):
         out_vector=y_out_batch[line_idx]
         true_vector=np.zeros(len_vector)
@@ -316,7 +334,7 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5):
         right_line+=line_right
     allelement_acc=float(right_num)/all_num
     allsample_acc=float(right_line)/all_line
-    return allelement_acc,allsample_acc,all_num,all_line
+    return allelement_acc,allsample_acc,all_num,all_line,recall_rate
 
 
 def main():
@@ -353,13 +371,17 @@ def main():
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.0002)
     # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
-    loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
+    # loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
+    loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.MultiLabelMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
         acc_all,acc_line=0,0
+        if epoch_idx>0:
+            print 'recal_rate this epoch {}: {}'.format(epoch_idx,recall_rate_list.mean())
+        recall_rate_list=np.array([])
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
@@ -369,15 +391,17 @@ def main():
             y_spk,y_map=multi_label_vector(train_data['multi_spk_fea_list'],dict_spk2idx)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
             y_out_batch=mix_speech.data.cpu().numpy()
-            acc1,acc2,all_num_batch,all_line_batch=count_multi_acc(y_out_batch,y_spk)
+            acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk)
             acc_all+=acc1
             acc_line+=acc2
+            recall_rate_list=np.append(recall_rate_list,recall_rate)
 
             # print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
             for i in range(config.BATCH_SIZE):
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{}'.format(all_num_batch,acc1,all_line_batch,acc2)
+            # continue
             # if epoch_idx==0 and batch_idx<50:
             #     loss=loss_func(mix_speech,100*y_map)
             # else:
