@@ -459,11 +459,12 @@ def main():
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
-        print_memory_state(memory.memory)
+        # print_memory_state(memory.memory)
         print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data_gen=prepare_data('once','train')
+            # train_data_gen=prepare_data('once','test')
             train_data=train_data_gen.next()
 
             '''混合语音len,fre,Emb 3D表示层'''
