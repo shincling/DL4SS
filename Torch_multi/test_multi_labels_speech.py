@@ -9,7 +9,7 @@ import random
 import time
 import config
 from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
-import torchvision.models as models
+# import torchvision.models as models
 import myNet
 
 # np.random.seed(1)#设定种子
@@ -239,20 +239,35 @@ class MIX_SPEECH_classifier(nn.Module):
         self.mix_speech_len=mix_speech_len
         self.layer=nn.LSTM(
             input_size=input_fre,
-            hidden_size=config.HIDDEN_UNITS,
+            hidden_size=config.HIDDEN_UNITS*2,
             num_layers=3,
             batch_first=True,
             bidirectional=True
         )
-        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,num_labels)
+
+        # self.cnn=nn.Conv2d(1, 33, (5, 3), stride=(2, 1), padding=(4, 2))
+        # self.cnn1=nn.Conv2d(33, 33, (5, 3), stride=(2, 1), padding=(4, 2))
+        # self.cnn2=nn.Conv2d(33, 5, (5, 3), stride=(2, 1), padding=(4, 2))
+        # self.cnn3=nn.Conv2d(5, 5, (5, 3), stride=(2, 1), padding=(4, 2))
+
+        self.Linear=nn.Linear(2*2*config.HIDDEN_UNITS,num_labels)
+        # self.Linear_cnn=nn.Linear(16440,num_labels)
 
     def forward(self,x):
+        xx=x
         x,hidden=self.layer(x)
         x=x.contiguous() #bs*len*600
-        # x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
         x=torch.mean(x,1)
         out=F.sigmoid(self.Linear(x))
-        # out=self.Linear(x)
+
+        # print xx.size()
+        # y=self.cnn(xx.view(config.BATCH_SIZE,1,xx.size()[-2],xx.size()[-1]))
+        # y=self.cnn1(y)
+        # y=self.cnn2(y)
+        # y=self.cnn3(y)
+        # y=y.view(y.size()[0],-1)
+        # o=F.sigmoid(self.Linear_cnn(y))
+        #
         return out
 
 class MULTI_MODAL(object):
@@ -288,8 +303,8 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5):
     right_line=0
     y_out_batch=np.int32(y_out_batch>alpha)
     for line_idx,line in enumerate(true_spk):
-        true_vector=y_out_batch[line_idx]
-        out_vector=np.zeros(len_vector)
+        out_vector=y_out_batch[line_idx]
+        true_vector=np.zeros(len_vector)
         for x in line:
             out_vector[x]=1
         if (out_vector==true_vector).min()==1: #如果最小的也是true，那么就都是true了
@@ -322,8 +337,13 @@ def main():
     mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     print mix_speech_class
 
-    if 0 and config.Load_param:
-        mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
+    if 1 and config.Load_param:
+        para_name='param_speech_WSJ0_multilabel_epoch42'
+        para_name='param_speech_WSJ0_multilabel_epoch249'
+        # para_name='param_speech_123_WSJ0_multilabel_epoch51'
+        # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
+        mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
+        print 'Load Success:',para_name
 
     optimizer = torch.optim.Adagrad([{'params':mix_speech_class.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
@@ -331,9 +351,10 @@ def main():
                                  # {'params':query_video_layer.Linear.parameters()},
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.00002)
+                                 ], lr=0.0002)
     # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
     loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
+    # loss_func = torch.nn.MultiLabelMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
 
     print '''Begin to calculate.'''
@@ -357,13 +378,21 @@ def main():
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{}'.format(all_num_batch,acc1,all_line_batch,acc2)
-            loss=loss_func(mix_speech,y_map)
+            # if epoch_idx==0 and batch_idx<50:
+            #     loss=loss_func(mix_speech,100*y_map)
+            # else:
+            #     loss=loss_func(mix_speech,y_map)
+            # loss=loss_func(mix_speech,30*y_map)
+            loss=loss_func(mix_speech,30*y_map)
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
         if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
-            torch.save(mix_speech_class.state_dict(), 'params/param_speech_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
+            try:
+                torch.save(mix_speech_class.state_dict(), 'params/param_speech_123_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
+            except:
+                print '\n\nSave paras failed ~! \n\n\n'
 
             # Print the Params history , that it proves well.
             # print 'Parameter history:'
