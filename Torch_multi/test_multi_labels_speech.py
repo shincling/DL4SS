@@ -307,12 +307,14 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
         top_k_idx=np.flip(np.argsort(y_out_batch),1)[:,:top_k_num]
         print 'top k predicted:',top_k_idx
         print 'top k real:',true_spk
+        num_all_true=0
         for pre,true in zip(top_k_idx,true_spk):
+            num_all_true+=len(true)
             for one_pre in pre:
                 if one_pre in true:
                     recall+=1
-        recall_rate=recall/np.array(true_spk).size
-        print 'recall rate:',recall_rate
+        recall_rate=recall/num_all_true
+        # print 'recall rate:',recall_rate
 
         y_out_batch=np.zeros_like(y_out_batch)
         for k,yy in enumerate(top_k_idx):
@@ -356,9 +358,10 @@ def main():
     print mix_speech_class
 
     if 1 and config.Load_param:
-        para_name='param_speech_WSJ0_multilabel_epoch42'
-        para_name='param_speech_WSJ0_multilabel_epoch249'
-        # para_name='param_speech_123_WSJ0_multilabel_epoch51'
+        # para_name='param_speech_WSJ0_multilabel_epoch42'
+        # para_name='param_speech_WSJ0_multilabel_epoch249'
+        # para_name='param_speech_123_WSJ0_multilabel_epoch75'
+        para_name='param_speech_123_WSJ0_multilabel_epoch24'
         # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
@@ -400,14 +403,14 @@ def main():
             for i in range(config.BATCH_SIZE):
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
-            print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{}'.format(all_num_batch,acc1,all_line_batch,acc2)
+            print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{} recall--{}'.format(all_num_batch,acc1,all_line_batch,acc2,recall_rate)
             # continue
             # if epoch_idx==0 and batch_idx<50:
             #     loss=loss_func(mix_speech,100*y_map)
             # else:
             #     loss=loss_func(mix_speech,y_map)
             # loss=loss_func(mix_speech,30*y_map)
-            loss=loss_func(mix_speech,30*y_map)
+            loss=loss_func(mix_speech,y_map)
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
