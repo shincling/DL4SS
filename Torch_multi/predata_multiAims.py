@@ -171,6 +171,12 @@ def prepare_data(mode,train_or_test):
 
                         #视频处理部分，为了得到query
                     else:
+                        if 0 and config.MIN_MIX==config.MAX_MIX==2:
+                            rate=np.exp(0.5*np.random.rand())#e**(0——0.5)
+                            if np.random.rand()>0.5:
+                                signal=rate*signal
+                            else:
+                                wav_mix=wav_mix*rate
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
                         some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
