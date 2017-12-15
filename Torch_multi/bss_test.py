@@ -53,5 +53,5 @@ def cal(path,aim_mix_number):
     print SDR_sum.mean()
     return SDR_sum
 
-cal(path,aim_mix_number)
+# cal(path,aim_mix_number)
 
