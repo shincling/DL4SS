@@ -503,6 +503,7 @@ def main():
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             # train_data_gen=prepare_data('once','train')
             train_data_gen=prepare_data('once','test')
+            # train_data_gen=prepare_data('once','eval_test')
             train_data=train_data_gen.next()
             # test_data_gen=prepare_data('once','test')
             # test_data=train_data_gen.next()

@@ -100,6 +100,7 @@ def prepare_data(mode,train_or_test):
             all_spk_train=os.listdir(data_path+'/train')
             all_spk_eval=os.listdir(data_path+'/eval')
             all_spk_test=os.listdir(data_path+'/test')
+            all_spk_evaltest=os.listdir(data_path+'/test')
             all_spk = all_spk_train+all_spk_eval+all_spk_test
             spk_samples_list={}
             batch_idx=0
@@ -112,6 +113,8 @@ def prepare_data(mode,train_or_test):
                     aim_spk_k=random.sample(all_spk_eval,mix_k)#本次混合的候选人
                 elif train_or_test=='test':
                     aim_spk_k=random.sample(all_spk_test,mix_k)#本次混合的候选人
+                elif train_or_test=='eval_test':
+                    aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
                 multi_fea_dict_this_sample={}
                 multi_wav_dict_this_sample={}
