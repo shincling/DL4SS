@@ -12,8 +12,8 @@ from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
 # import torchvision.models as models
 import myNet
 
-# np.random.seed(1)#设定种子
-# torch.manual_seed(1)
+np.random.seed(1)#设定种子
+torch.manual_seed(1)
 # stout=sys.stdout
 # log_file=open(config.LOG_FILE_PRE,'w')
 # sys.stdout=log_file
@@ -305,8 +305,8 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
     if top_k_num:
         recall=0.
         top_k_idx=np.flip(np.argsort(y_out_batch),1)[:,:top_k_num]
-        print 'top k predicted:',top_k_idx
-        print 'top k real:',true_spk
+        print 'top k predicted:',top_k_idx[:5]
+        print 'top k real:',true_spk[:5]
         num_all_true=0
         for pre,true in zip(top_k_idx,true_spk):
             num_all_true+=len(true)
@@ -361,7 +361,10 @@ def main():
         # para_name='param_speech_WSJ0_multilabel_epoch42'
         # para_name='param_speech_WSJ0_multilabel_epoch249'
         # para_name='param_speech_123_WSJ0_multilabel_epoch75'
-        para_name='param_speech_123_WSJ0_multilabel_epoch24'
+        # para_name='param_speech_123_WSJ0_multilabel_epoch24'
+        para_name='param_speech_123onezero_WSJ0_multilabel_epoch75' #top3 召回率80%
+        para_name='param_speech_123onezeroag_WSJ0_multilabel_epoch80'#83.6
+        para_name='param_speech_123onezeroag1_WSJ0_multilabel_epoch45'
         # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
@@ -415,9 +418,9 @@ def main():
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
-        if config.Save_param and epoch_idx > 10 and epoch_idx % 3 == 0:
+        if config.Save_param and epoch_idx > 10 and epoch_idx % 5 == 0:
             try:
-                torch.save(mix_speech_class.state_dict(), 'params/param_speech_123_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
+                torch.save(mix_speech_class.state_dict(), 'params/param_speech_123onezeroag1_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
             except:
                 print '\n\nSave paras failed ~! \n\n\n'
 
