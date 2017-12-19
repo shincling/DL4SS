@@ -396,7 +396,7 @@ def top_k_mask(batch_pro,alpha,top_k):
     return final
 
 
-def select_the_final(mask,Embs,pro,dict,top_k=2,alpha=0.7):
+def select_the_final(mask,Embs,pro,dict,top_k=2,alpha=0.8):
     # print np.corrcoef(Embs)
     # print np.dot(Embs,np.transpose(Embs))
     ll=len(mask)
@@ -579,15 +579,19 @@ def main():
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
 
             '''这里应该有个大致的去重复的手段'''
-            top_k_mask_idx=[np.where(line==1) for line in top_k_mask_mixspeech.numpy()]
+            top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
             for l_idx in range(config.BATCH_SIZE):
-                mask_idx_thisline=top_k_mask_idx[l_idx][0]
+                mask_idx_thisline=top_k_mask_idx[l_idx]
                 mix_speech_multiEmbs_thisline=mix_speech_multiEmbs.data.cpu().numpy()[l_idx,mask_idx_thisline]
-                select_the_final(mask_idx_thisline,mix_speech_multiEmbs_thisline,mix_speech_output.data.cpu().numpy()[l_idx,mask_idx_thisline],dict_idx2spk,top_k=3)
+                filter_thisline=select_the_final(mask_idx_thisline,mix_speech_multiEmbs_thisline,mix_speech_output.data.cpu().numpy()[l_idx,mask_idx_thisline],dict_idx2spk,top_k=2)
+                top_k_mask_idx[l_idx]=top_k_mask_idx[l_idx][filter_thisline]
+            print top_k_mask_idx
+            top_k_mask_mixspeech_re=torch.zeros(config.BATCH_SIZE,num_labels)
+            for ii,ll in enumerate(top_k_mask_idx):
+                for jj in ll:
+                    top_k_mask_mixspeech_re[ii,jj]=1
+            mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech_re) # bs*num_labels（最多混合人个数）×Embedding的大小
 
-
-            pass
-            continue
 
             #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
             #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
