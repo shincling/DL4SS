@@ -20,6 +20,7 @@ import soundfile as sf
 # from separation import bss_eval_sources
 import bss_test
 from sklearn.decomposition.pca import PCA
+from sklearn.metrics.pairwise import paired_cosine_distances
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -395,23 +396,48 @@ def top_k_mask(batch_pro,alpha,top_k):
     return final
 
 
-def select_the_final(mask,Embs,pro,top_k=2):
+def select_the_final(mask,Embs,pro,dict,top_k=2,alpha=0.7):
     # print np.corrcoef(Embs)
-    print np.dot(Embs,np.transpose(Embs))
-    print mask
+    # print np.dot(Embs,np.transpose(Embs))
+    ll=len(mask)
+    final_matrix=np.zeros([ll,ll])
+    for i in range(ll):
+        for j in range(ll):
+            # dis=np.linalg.(Embs[i]-Embs[j])
+            dis=paired_cosine_distances(Embs[i],Embs[j])
+            final_matrix[i,j]=dis
+    # final_matrix=paired_cosine_distances(Embs,Embs)
+    print final_matrix
+    print [dict[i] for i in mask]
     print pro
+    pro_sortidx=np.flip(np.argsort(pro),0)
+    top_idx_list=[]
+    for jj,id in enumerate(pro_sortidx):
+        if jj==0:
+            top_idx_list.append(id)
+            continue
+        else:
+            if np.count_nonzero(final_matrix[id,top_idx_list]<alpha):
+                continue
+            else:
+                top_idx_list.append(id)
 
-    pca=PCA(2)
-    newData=pca.fit_transform(Embs)
-    print newData.shape
-    f1=plt.figure(1)
-    t1=plt.scatter(newData[0,0],newData[0,1],s=60,c='red')
-    t2=plt.scatter(newData[1,0],newData[1,1],s=60,c='blue')
-    t3=plt.scatter(newData[2,0],newData[2,1],s=60,c='green')
-    t4=plt.scatter(newData[3,0],newData[3,1],s=60,c='black')
-    t5=plt.scatter(newData[4,0],newData[4,1],s=60,c='grey')
-    f1.legend((t1,t2,t3,t4,t5),('0','1','2','3','4'))
-    plt.show()
+        if len(top_idx_list)>=top_k:
+            break
+
+    return top_idx_list
+
+    # pca=PCA(2)
+    # newData=pca.fit_transform(Embs)
+    # print newData.shape
+    # f1=plt.figure(1)
+    # t1=plt.scatter(newData[0,0],newData[0,1],s=60,c='red')
+    # t2=plt.scatter(newData[1,0],newData[1,1],s=60,c='blue')
+    # t3=plt.scatter(newData[2,0],newData[2,1],s=60,c='green')
+    # t4=plt.scatter(newData[3,0],newData[3,1],s=60,c='black')
+    # t5=plt.scatter(newData[4,0],newData[4,1],s=60,c='grey')
+    # f1.legend((t1,t2,t3,t4,t5),('0','1','2','3','4'))
+    # plt.show()
 
 def main():
     print('go to model')
@@ -557,7 +583,7 @@ def main():
             for l_idx in range(config.BATCH_SIZE):
                 mask_idx_thisline=top_k_mask_idx[l_idx][0]
                 mix_speech_multiEmbs_thisline=mix_speech_multiEmbs.data.cpu().numpy()[l_idx,mask_idx_thisline]
-                select_the_final(mask_idx_thisline,mix_speech_multiEmbs_thisline,mix_speech_output.data.cpu().numpy()[l_idx,mask_idx_thisline],top_k=2)
+                select_the_final(mask_idx_thisline,mix_speech_multiEmbs_thisline,mix_speech_output.data.cpu().numpy()[l_idx,mask_idx_thisline],dict_idx2spk,top_k=3)
 
 
             pass
