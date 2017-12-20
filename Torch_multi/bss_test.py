@@ -46,6 +46,8 @@ def cal(path,aim_mix_number):
             permu=bss_eval_sources(aim_speech_channel_add,pre_speech_channel)[-1][:aim_mix_number]
             result=bss_eval_sources(aim_speech_channel,pre_speech_channel[[permu]])
         else:
+            if pre_speech_channel.shape[0]==2 and aim_speech_channel.shape[0]==1:
+                pre_speech_channel=pre_speech_channel.repeat(2,0)
             result=bss_eval_sources(aim_speech_channel,pre_speech_channel)
 
         print result
