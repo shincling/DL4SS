@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config
-from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
+from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
 import myNet
 from test_multi_labels_speech import multi_label_vector
 import os
@@ -45,7 +45,7 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
         phase_mix = np.angle(_mix_spec)
         for idx,one_cha in enumerate(each_trueVector):
             if one_cha: #　如果此刻这个候选人通道是开启的
-                this_spk=dict_idx2spk[idx]
+                this_spk=dict_idx2spk[one_cha]
                 y_true_map=each_y[idx].data.cpu().numpy()
                 y_pre_map=each_pre[idx].data.cpu().numpy()
                 _pred_spec = y_pre_map * np.exp(1j * phase_mix)
@@ -314,17 +314,10 @@ class SPEECH_EMBEDDING(nn.Module):
         # self.layer=nn.Embedding(num_labels,embedding_size,padding_idx=-1)
         self.layer=nn.Embedding(num_labels,embedding_size)
 
-    def forward(self, input):
-        input_float=input
-        size=input.size()
-        input=torch.from_numpy(np.int64(input.numpy()))
-        order_matrix=np.arange(0,self.num_all).reshape([1,self.num_all]).repeat(config.BATCH_SIZE,0)
-        order_matrix=torch.from_numpy(order_matrix)
-        aim_matrix=order_matrix*input
+    def forward(self, input,mask_idx):
+        aim_matrix=torch.from_numpy(np.array(mask_idx))
         all=self.layer(Variable(aim_matrix).cuda()) # bs*num_labels（最多混合人个数）×Embedding的大小
-        input_float=input_float.view(size[0],size[1],1).expand(size[0],size[1],self.emb_size).contiguous()
-        input_float=Variable(input_float,requires_grad=False).cuda()
-        out=all*input_float
+        out=all
         return out
 
 class MULTI_MODAL(object):
@@ -413,16 +406,6 @@ def main():
     # This part is to conduct the memory.
     # hidden_size=(config.HIDDEN_UNITS)
     hidden_size=(config.EMBEDDING_SIZE)
-    memory=MEMORY(spk_num_total+config.UNK_SPK_SUPP,hidden_size)
-    memory.register_spklist(spk_all_list) #把spk_list注册进空的memory里面去
-
-    # Memory function test.
-    print 'memory all spkid:',memory.get_all_spkid()
-    # print memory.get_image_num('Unknown_id')
-    # print memory.get_video_vector('Unknown_id')
-    # print memory.add_video('Unknown_id',Variable(torch.ones(300)))
-
-    # This part is to test the ATTENTION methond from query(~) to mix_speech
     # x=torch.arange(0,24).view(2,3,4)
     # y=torch.ones([2,4])
     att_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
@@ -443,12 +426,12 @@ def main():
                                  {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.0002)
-    if 0 and config.Load_param:
+    if 1 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
-        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix_speech_hidden3d_220'))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix_speech_emblayer_220'))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix_speech_attlayer_220'))
+        # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -474,7 +457,8 @@ def main():
             '''Speech self Sepration　语音自分离部分'''
             mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
             #从数据里得到ground truth的说话人名字和vector
-            y_spk_list=[one.keys() for one in train_data['multi_spk_fea_list']]
+            # y_spk_list=[one.keys() for one in train_data['multi_spk_fea_list']]
+            y_spk_list= train_data['multi_spk_fea_list']
             y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
             # 如果训练阶段使用Ground truth的分离结果作为判别
             if config.Ground_truth:
@@ -484,36 +468,43 @@ def main():
                     y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
 
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
-            mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
+            top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
+            mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
+
+            assert len(top_k_mask_idx[0])==len(top_k_mask_idx[-1])
+            top_k_num=len(top_k_mask_idx[0])
 
             #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
             #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
             mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-            mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
+            mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
             mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
             # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
             att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
             att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
             # print att_multi_speech.size()
-            att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
+            att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
             # print att_multi_speech.size()
             multi_mask=att_multi_speech
-            top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,num_labels,1,1).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
-            multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
+            # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
+            # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
 
             x_input_map=Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
             # print x_input_map.size()
-            x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
+            x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
+            # predict_multi_map=multi_mask*x_input_map_multi
             predict_multi_map=multi_mask*x_input_map_multi
-            if batch_idx%100==0:
+            if 0 and batch_idx%100==0:
                 print multi_mask
             # print predict_multi_map
 
-            y_multi_map=np.zeros([config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre],dtype=np.float32)
+            y_multi_map=np.zeros([config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre],dtype=np.float32)
             batch_spk_multi_dict=train_data['multi_spk_fea_list']
             for idx,sample in enumerate(batch_spk_multi_dict):
-                for spk in sample.keys():
-                    y_multi_map[idx,dict_spk2idx[spk]]=sample[spk]
+                y_idx=sorted([dict_spk2idx[spk] for spk in sample.keys()])
+                assert y_idx==list(top_k_mask_idx[idx])
+                for jdx,oo in enumerate(y_idx):
+                    y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
@@ -523,16 +514,17 @@ def main():
             predict_sum_map=torch.sum(predict_multi_map,1)
             loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
             loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
-            print 'loss 1, losssum : ',loss_multi_speech,loss_multi_sum_speech
+            # print 'loss 1, losssum : ',loss_multi_speech,loss_multi_sum_speech
             # loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
 
             if 1 or batch_idx==config.EPOCH_SIZE-1:
-                bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
+                bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,train_data)
                 SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
-
 
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print 'loss:',loss_multi_speech.data.cpu().numpy()
+            continue
+
             optimizer.zero_grad()   # clear gradients for next train
             loss_multi_speech.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
@@ -541,76 +533,6 @@ def main():
                 torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
                 torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
                 torch.save(att_speech_layer.state_dict(),'params/param_mix_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
-
-            # print 'Parameter history:'
-            # for pa_gen in [{'params':mix_hidden_layer_3d.parameters()},
-            #                                  {'params':mix_speech_multiEmbedding.parameters()},
-            #                                  {'params':mix_hidden_layer_3d.parameters()},
-            #                                  {'params':att_speech_layer.parameters()},
-            #                                  {'params':att_layer.parameters()},
-            #                                  {'params':mix_speech_classifier.parameters()},
-            #                                  ]:
-            #     print pa_gen['params'].next().data.cpu().numpy()[0]
-
-            # continue
-            1/0
-
-            '''视频刺激 Sepration　部分'''
-            # try:
-            #     query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
-            # except RuntimeError:
-            #     print 'RuntimeError here.'+'#'*30
-            #     continue
-
-            query_video_output,query_video_hidden=query_video_layer(Variable(torch.from_numpy(train_data[4])).cuda())
-            if config.Comm_with_Memory:
-                #TODO:query更新这里要再检查一遍，最好改成函数，现在有点丑陋。
-                aim_idx_FromVideoQuery=torch.max(query_video_output,dim=1)[1] #返回最大的参数
-                aim_spk_batch=[dict_idx2spk[int(idx.data.cpu().numpy())] for idx in aim_idx_FromVideoQuery]
-                print 'Query class result:',aim_spk_batch,'p:',query_video_output.data.cpu().numpy()
-
-                for idx,aim_spk in enumerate(aim_spk_batch):
-                    batch_vector=torch.stack([memory.get_video_vector(aim_spk)])
-                    memory.add_video(aim_spk,query_video_hidden[idx])
-                query_video_hidden=query_video_hidden+Variable(batch_vector)
-                query_video_hidden=query_video_hidden/torch.sum(query_video_hidden*query_video_hidden,0)
-                y_class=Variable(torch.from_numpy(np.array([dict_spk2idx[spk] for spk in train_data['aim_spkname']])),requires_grad=False).cuda()
-                print y_class
-                loss_video_class=loss_query_class(query_video_output,y_class)
-
-            mask=att_layer(mix_speech_hidden,query_video_hidden)#bs*max_len*fre
-
-            predict_map=mask*Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
-            y_map=Variable(torch.from_numpy(train_data['aim_fea'])).cuda()
-            print 'training abs norm this batch:',torch.abs(y_map-predict_map).norm().data.cpu().numpy()
-            loss_all=loss_func(predict_map,y_map)
-            if 0 and config.Save_param:
-                torch.save(query_video_layer.state_dict(),'param_video_layer_19_forS1S5')
-
-            if 0 and epoch_idx<20:
-                loss=loss_video_class
-                if epoch_idx%1==0 and batch_idx==config.EPOCH_SIZE-1:
-                    torch.save(query_video_layer.state_dict(),'param_video_layer_19_forS1S5')
-            else:
-                # loss=loss_all+0.1*loss_video_class
-                loss = loss_all
-            optimizer.zero_grad()   # clear gradients for next train
-            loss.backward(retain_graph=True)         # backpropagation, compute gradients
-            optimizer.step()        # apply gradients
-
-
-            # Print the Params history , that it proves well.
-            # print 'Parameter history:'
-            # for pa_gen in [{'params':mix_hidden_layer_3d.parameters()},
-            #                                  {'params':query_video_layer.lstm_layer.parameters()},
-            #                                  {'params':query_video_layer.dense.parameters()},
-            #                                  {'params':query_video_layer.Linear.parameters()},
-            #                                  {'params':att_layer.parameters()},
-            #                                  ]:
-            #     print pa_gen['params'].next()
-
-
-
 
 
 
