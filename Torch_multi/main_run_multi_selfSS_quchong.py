@@ -398,7 +398,7 @@ def top_k_mask(batch_pro,alpha,top_k):
 
 def select_the_final(mask,Embs,pro,dict,top_k=2,alpha=0.8):
     # print np.corrcoef(Embs)
-    # print np.dot(Embs,np.transpose(Embs))
+    print np.dot(Embs,np.transpose(Embs))
     ll=len(mask)
     final_matrix=np.zeros([ll,ll])
     for i in range(ll):
@@ -424,6 +424,21 @@ def select_the_final(mask,Embs,pro,dict,top_k=2,alpha=0.8):
 
         if len(top_idx_list)>=top_k:
             break
+    if config.MAX_MIX==config.MIN_MIX==2 and len(top_idx_list)<top_k:
+        dis_line=final_matrix[pro_sortidx[0]]
+        largest_idx=np.argmax(dis_line)
+        top_idx_list.append(largest_idx)
+
+    '''
+    if config.MAX_MIX==config.MIN_MIX==2:
+        largest_idx=final_matrix.argmax()
+        largest_idx_x=largest_idx/ll
+        largest_idx_y=largest_idx%ll
+        top_idx_list=[largest_idx_x,largest_idx_y]
+        print 'largest x , y:',largest_idx_x,largest_idx_y
+    '''
+    assert len(top_idx_list)==2
+
 
     return top_idx_list
 
@@ -590,6 +605,7 @@ def main():
             for ii,ll in enumerate(top_k_mask_idx):
                 for jj in ll:
                     top_k_mask_mixspeech_re[ii,jj]=1
+            top_k_mask_mixspeech=top_k_mask_mixspeech_re
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech_re) # bs*num_labels（最多混合人个数）×Embedding的大小
 
 
@@ -605,6 +621,7 @@ def main():
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
             # print att_multi_speech.size()
             multi_mask=att_multi_speech
+            print multi_mask
             top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,num_labels,1,1).expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre)
             multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
 
