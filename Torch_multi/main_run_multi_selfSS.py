@@ -523,9 +523,10 @@ def main():
             predict_sum_map=torch.sum(predict_multi_map,1)
             loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
             loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
+            print 'loss 1, losssum : ',loss_multi_speech,loss_multi_sum_speech
             # loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
 
-            if batch_idx==config.EPOCH_SIZE-1:
+            if 1 or batch_idx==config.EPOCH_SIZE-1:
                 bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
                 SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
 
