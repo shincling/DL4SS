@@ -52,7 +52,7 @@ def cal(path,aim_mix_number):
 
         print result
         SDR_sum=np.append(SDR_sum,result[0])
-    print SDR_sum.mean()
+    print 'SDR here:',SDR_sum.mean()
     return SDR_sum
 
 # cal(path,aim_mix_number)
