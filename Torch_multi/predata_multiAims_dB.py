@@ -104,9 +104,10 @@ def prepare_data(mode,train_or_test):
             all_spk = all_spk_train+all_spk_eval+all_spk_test
             spk_samples_list={}
             batch_idx=0
+            mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
             while True:
                 mix_len=0
-                mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
+                # mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
                 if train_or_test=='train':
                     aim_spk_k=random.sample(all_spk_train,mix_k)#本次混合的候选人
                 elif train_or_test=='eval':
