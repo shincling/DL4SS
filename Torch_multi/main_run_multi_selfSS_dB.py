@@ -34,7 +34,7 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
     if config.Out_Sep_Result:
         dst='batch_output'
         if os.path.exists(dst):
-            print " cleanup: " + dst + "/"
+            print " \ncleanup: " + dst + "/"
             shutil.rmtree(dst)
         os.makedirs(dst)
 
@@ -507,23 +507,22 @@ def main():
                     y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
-            loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
+            # loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
             #各通道和为１的loss部分,应该可以更多的带来差异
             y_sum_map=Variable(torch.ones(config.BATCH_SIZE,mix_speech_len,speech_fre)).cuda()
-            predict_sum_map=torch.sum(predict_multi_map,1)
+            predict_sum_map=torch.sum(multi_mask,1)
             loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
             loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
-            # print 'loss 1, losssum : ',loss_multi_speech,loss_multi_sum_speech
-            # loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
+            print 'loss 1, losssum : ',loss_multi_speech.data.cpu().numpy(),loss_multi_sum_speech.data.cpu().numpy()
+            loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
+            print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
+            print 'loss:',loss_multi_speech.data.cpu().numpy()
 
             if 1 or batch_idx==config.EPOCH_SIZE-1:
                 bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,train_data)
                 SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
 
-            print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
-            print 'loss:',loss_multi_speech.data.cpu().numpy()
-            continue
 
             optimizer.zero_grad()   # clear gradients for next train
             loss_multi_speech.backward()         # backpropagation, compute gradients
