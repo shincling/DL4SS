@@ -120,6 +120,15 @@ def prepare_data(mode,train_or_test):
                 multi_wav_dict_this_sample={}
 
                 for k,spk in enumerate(aim_spk_k):
+                    #选择dB的通道～！
+                    channel_act=None
+                    if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
+                        dB_rate=10**(config.dB/10.0*np.random.rand())#e**(0——0.5)
+                        if np.random.rand()>0.5: #选择哪个通道来
+                            channel_act=1
+                        else:
+                            channel_act=2
+                        # print 'channel to change with dB:',channel_act,dB_rate
                     #若是没有出现在整体列表内就注册进去,且第一次的时候读取所有的samples的名字
                     if spk not in spk_samples_list:
                         spk_samples_list[spk]=[]
@@ -164,6 +173,8 @@ def prepare_data(mode,train_or_test):
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
                         aim_spk_speech=signal
                         aim_spkid.append(aim_spkname)
+                        if channel_act==1:
+                            signal=signal*dB_rate
                         wav_mix=signal
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                     config.FRAME_SHIFT)))
@@ -174,12 +185,9 @@ def prepare_data(mode,train_or_test):
 
                         #视频处理部分，为了得到query
                     else:
-                        if 0 and config.MIN_MIX==config.MAX_MIX==2:
-                            rate=np.exp(0.5*np.random.rand())#e**(0——0.5)
-                            if np.random.rand()>0.5:
-                                signal=rate*signal
-                            else:
-                                wav_mix=wav_mix*rate
+                        if channel_act==2:
+                            signal=signal*dB_rate
+
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
                         some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
@@ -326,32 +334,6 @@ def prepare_data(mode,train_or_test):
                         multi_fea_dict_this_sample[spk]=aim_fea_clean
                         multi_wav_dict_this_sample[spk]=signal
 
-                        #视频处理部分，为了得到query
-                        '''
-                        aim_spk_video_path=data_path+'/'+spk+'/'+spk+'_video/'+sample_name+'.mpg'
-                        extract_frames(aim_spk_video_path,sample_name) #抽取frames从第一个目标人的视频里,在本目录下生成一个临时的文件夹
-                        aim_video_imagename_list = sorted(os.listdir(sample_name)) #得到这个文件夹里的所有图像的名字
-                        aim_video_image_list=[]#用来存放这些抽出来帧的images的列表，后面转化为array
-                        for img in aim_video_imagename_list:
-                            im=Image.open(sample_name+'/'+img)
-                            pix=im.load()
-                            width,height=im.size
-                            #此处用来决定三个通道维度上的先后顺序是x,y,3还是3,x,y
-                            if not channel_first:
-                                im_array=np.zeros([width,height,3],dtype=np.float32)
-                                for x in range(width):
-                                    for y in range(height):
-                                        im_array[x,y]=pix[x,y]
-                            else:
-                                im_array=np.zeros([3,width,height],dtype=np.float32)
-                                for x in range(width):
-                                    for y in range(height):
-                                        im_array[:,x,y]=pix[x,y]
-                            aim_video_image_list.append(im_array)
-                        query.append(aim_video_image_list)#添加到最终的query里，作为batch里的一个sample
-
-                        shutil.rmtree(sample_name)#删除临时文件夹
-                        '''
                     else:
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
