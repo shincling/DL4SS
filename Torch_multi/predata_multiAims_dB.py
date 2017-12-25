@@ -120,16 +120,16 @@ def prepare_data(mode,train_or_test):
                 multi_fea_dict_this_sample={}
                 multi_wav_dict_this_sample={}
 
+                channel_act=None
+                if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
+                    dB_rate=10**(config.dB/20.0*np.random.rand())#e**(0——0.5)
+                    if np.random.rand()>0.5: #选择哪个通道来
+                        channel_act=1
+                    else:
+                        channel_act=2
+                    print 'channel to change with dB:',channel_act,dB_rate
                 for k,spk in enumerate(aim_spk_k):
                     #选择dB的通道～！
-                    channel_act=None
-                    if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
-                        dB_rate=10**(config.dB/10.0*np.random.rand())#e**(0——0.5)
-                        if np.random.rand()>0.5: #选择哪个通道来
-                            channel_act=1
-                        else:
-                            channel_act=2
-                        # print 'channel to change with dB:',channel_act,dB_rate
                     #若是没有出现在整体列表内就注册进去,且第一次的时候读取所有的samples的名字
                     if spk not in spk_samples_list:
                         spk_samples_list[spk]=[]
