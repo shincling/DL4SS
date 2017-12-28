@@ -266,6 +266,7 @@ def main():
     loss_query_class=torch.nn.CrossEntropyLoss()
 
     print '''Begin to calculate.'''
+    SDR_SUM_total=np.array([])
     for epoch_idx in range(config.MAX_EPOCH):
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
@@ -357,14 +358,16 @@ def main():
                 if num_step>=2:
                     break
 
-                now_feas=(2*(1-multi_mask)*x_input_map_multi).data.cpu().numpy().reshape(1,mix_speech_len,speech_fre)
+                now_feas=((1-multi_mask)*x_input_map_multi).data.cpu().numpy().reshape(1,mix_speech_len,speech_fre)
                 mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(now_feas)).cuda())
                 mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(now_feas)).cuda())
 
 
-        SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
-        print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
+        # SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+        # print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
         # 1/0
+        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 2))
+        print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM_total.shape,epoch_idx,SDR_SUM_total.mean())
 
 
 
