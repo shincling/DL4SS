@@ -6,18 +6,14 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
 import random
-import time
 import config_WSJ0_dB as config
-from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
+from predata_multiAims_dB import prepare_data
 import myNet
 from test_multi_labels_speech import multi_label_vector
 import os
 import shutil
 import librosa
 import soundfile as sf
-# import matlab
-# import matlab.engine
-# from separation import bss_eval_sources
 import bss_test
 
 
@@ -103,126 +99,6 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),train_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
-def print_memory_state(memory):
-    print '\n memory states:'
-    for one in memory:
-        print '\nspk:{},video:{},age:{}'.format(one[0],one[1].cpu().numpy()[2*config.EMBEDDING_SIZE-3:2*config.EMBEDDING_SIZE+5],one[2])
-
-class MEMORY(object):
-    def __init__(self,total_size,hidden_size,):
-        '''memory的设计很关键
-        目前想的是一个list,每个条目包括:id(str),voide_vector,image_vector,video_vector(这三个合成一个向量）,
-        age_vector（长度为3,整型，呼应voice\image\ video的样本个数）'''
-        self.total_size=total_size
-        self.hidden_size=hidden_size
-        self.init_memory()
-
-    def init_memory(self):
-        # self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        self.memory=[['Unknown_id',torch.zeros(3*self.hidden_size).cuda(),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        # self.memory=[['Unknown_id',torch.range(1,3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        # self.memory=[['Unknown_id',Variable(torch.zeros(3*self.hidden_size),requires_grad=True),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-
-    def register_spklist(self,spk_list):
-        num=len(spk_list)
-        sample_list=random.sample(range(len(self.memory)),num)
-        for idx,sdx in enumerate(sample_list):
-            assert self.memory[sdx][0]=='Unknown_id'
-            self.memory[sdx][0]=spk_list[idx]
-
-    def get_all_spkid(self):
-        l=[]
-        for spk in self.memory:
-            l.append(spk[0])
-        return set(l)
-
-    def get_speech_vector(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][1][:self.hidden_size]
-    def get_image_vector(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][1][self.hidden_size:2*self.hidden_size]
-    def get_video_vector(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]
-    def get_speech_num(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][2][0]
-    def get_image_num(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][2][1]
-    def get_video_num(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][2][2]
-
-    def find_spk(self,spk_id):
-        for idx,spk in enumerate(self.memory):
-            if spk_id==spk[0]:
-                break
-        else:
-            raise KeyError('The spk_id:{} is not in the memory list.'.format(spk_id))
-        return idx
-
-    #注意这几个new_vector可能会是Variable变量，所以得想好这个怎么运算
-    def updata_vector(self,old,new,old_num):
-        '''这里定义如何更新旧的记忆里的memory和新的memory,
-        必须是new(Variable)+常量的形式,返回一个可以继续计算梯度的东西
-        '''
-        # return (old+new)/2 #最简单的，靠近最新的样本
-        if isinstance(old,Variable):
-            pass
-        else:
-            old=Variable(old,requires_grad=False)
-        tmp=(old+new) #最简单的，靠近最新的样本
-        final=tmp/tmp.data.norm(2)
-        return final
-
-    def add_speech(self,spk_id,new_vector,return_final=True):
-        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector()
-        old_num=self.get_speech_num()
-        final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][:self.hidden_size]=final.data #这里是FloatTensor的加法
-        self.memory[idx][2][0]=self.memory[idx][2][0]+1
-
-        if return_final:
-            return final
-
-    def add_image(self,spk_id,new_vector,return_final=True):
-        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector()
-        old_num=self.get_speech_num()
-        final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final.data #这里是FloatTensor的加法
-        self.memory[idx][2][1]=self.memory[idx][2][1]+1
-        if return_final:
-            return final
-
-    def add_video(self,spk_id,new_vector,return_final=True):
-        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector(spk_id)
-        old_num=self.get_speech_num(spk_id)
-        final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final.data #这里是FloatTensor的加法
-        self.memory[idx][2][2]=self.memory[idx][2][2]+1
-        if return_final:
-            return final
-
-    def find_idx_fromQueryVector(self,form,query_vecotr):
-        #todo:这个重点考虑一下如何设计
-        assert form in ['speech','image','video']
-        if form=='speech':
-            for idx,spk in self.memory:
-                if spk[2][0]:
-                    similarity=None
-                else:
-                    continue
 
 
 class ATTENTION(nn.Module):
@@ -267,37 +143,6 @@ class ATTENTION(nn.Module):
             return mask
 
 
-class VIDEO_QUERY(nn.Module):
-    def __init__(self,total_frames,video_size,spk_total_num):
-        super(VIDEO_QUERY,self).__init__()
-        self.total_frames=total_frames
-        self.video_size=video_size
-        self.spk_total_num=spk_total_num
-        self.images_net=myNet.inception_v3(pretrained=True)#注意这个输出[2]才是最后的隐层状态
-        for para in self.images_net.parameters():
-            para.requires_grad=False
-        self.size_hidden_image=2048 #抽取的图像的隐层向量的长度,Inception_v3对应的是2048
-        self.lstm_layer=nn.LSTM(
-            input_size=self.size_hidden_image,
-            hidden_size=config.HIDDEN_UNITS,
-            num_layers=config.NUM_LAYERS,
-            batch_first=True,
-            bidirectional=True
-        )
-        self.dense=nn.Linear(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE) #把输出的东西映射到embding_size的维度上
-        self.Linear=nn.Linear(config.EMBEDDING_SIZE,self.spk_total_num)
-
-    def forward(self, x):
-        assert x.size()[2]==3#判断是否不同通道在第三个维度
-        x=x.contiguous()
-        x=x.view(-1,3,self.video_size[0],self.video_size[1])
-        x_hidden_images=self.images_net(x)[2]
-        x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
-        x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
-        last_hidden=self.dense(x_lstm[:,-1])
-        # out=F.softmax(self.Linear(last_hidden)) #出处类别的概率,为什么很多都不加softmax的。。。
-        out=self.Linear(last_hidden) #出处类别的概率,为什么很多都不加softmax的。。。
-        return out,last_hidden
 
 class MIX_SPEECH(nn.Module):
     def __init__(self,input_fre,mix_speech_len):
@@ -402,8 +247,6 @@ def main():
     del spk_global_gen
     num_labels=len(spk_all_list)
 
-    # data_generator=prepare_data('once','train')
-    # data_generator=prepare_data_fake(train_or_test='train',num_labels=num_labels) #写一个假的数据生成，可以用来写模型先
 
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
@@ -420,44 +263,12 @@ def main():
     print mix_speech_classifier
     # mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])).cuda())
 
-    # mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(data[1])).cuda())
-    # 技巧：alpha0的时候，就是选出top_k，top_k很大的时候，就是选出来大于alpha的
-    # top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=config.MAX_MIX)
-    # top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=3)
-    # print top_k_mask_mixspeech
-    # mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
-    # mix_speech_multiEmbs=mix_speech_multiEmbedding(Variable(torch.from_numpy(top_k_mask_mixspeech),requires_grad=False).cuda()) # bs*num_labels（最多混合人个数）×Embedding的大小
-
-    # 需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
-    # 把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
-    # mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-    # mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
-    # mix_speech_hidden_5d=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-    # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-    # att_multi_speech=att_speech_layer(mix_speech_hidden_5d,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
-    # print att_multi_speech.size()
-    # att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,-1)
-    # print att_multi_speech.size()
-
-
-    # This part is to conduct the video inputs.
-    # query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
-    query_video_layer=None
-    # print query_video_layer
-    # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
-
-    # This part is to conduct the memory.
-    # hidden_size=(config.HIDDEN_UNITS)
     hidden_size=(config.EMBEDDING_SIZE)
     # x=torch.arange(0,24).view(2,3,4)
     # y=torch.ones([2,4])
     att_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
     att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-    # att=ATTENTION(4,'align')
-    # mask=att(x,y)#bs*max_len
-
-    # del data_generator
-    # del data
+    print att_speech_layer
 
     optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
