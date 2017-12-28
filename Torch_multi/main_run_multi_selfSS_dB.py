@@ -289,12 +289,12 @@ class MIX_SPEECH_classifier(nn.Module):
         self.mix_speech_len=mix_speech_len
         self.layer=nn.LSTM(
             input_size=input_fre,
-            hidden_size=config.HIDDEN_UNITS,
+            hidden_size=2*config.HIDDEN_UNITS,
             num_layers=config.NUM_LAYERS,
             batch_first=True,
             bidirectional=True
         )
-        self.Linear=nn.Linear(2*config.HIDDEN_UNITS,num_labels)
+        self.Linear=nn.Linear(2*2*config.HIDDEN_UNITS,num_labels)
 
     def forward(self,x):
         x,hidden=self.layer(x)
@@ -507,13 +507,13 @@ def main():
                     y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
-            # loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
+            loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
             #各通道和为１的loss部分,应该可以更多的带来差异
             y_sum_map=Variable(torch.ones(config.BATCH_SIZE,mix_speech_len,speech_fre)).cuda()
             predict_sum_map=torch.sum(multi_mask,1)
             loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
-            loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
+            # loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
             print 'loss 1, losssum : ',loss_multi_speech.data.cpu().numpy(),loss_multi_sum_speech.data.cpu().numpy()
             loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
@@ -528,7 +528,7 @@ def main():
             loss_multi_speech.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
-            if 1 and epoch_idx>20 and epoch_idx%10==0 and batch_idx==config.EPOCH_SIZE-1:
+            if 1 and epoch_idx>80 and epoch_idx%10==0 and batch_idx==config.EPOCH_SIZE-1:
                 torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
                 torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
                 torch.save(att_speech_layer.state_dict(),'params/param_mix_{}_attlayer_{}'.format(config.DATASET,epoch_idx))

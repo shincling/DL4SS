@@ -4,7 +4,7 @@ import os
 import numpy as np
 import time
 import random
-import config
+import config_WSJ0_dB as config
 import re
 import soundfile as sf
 import resampy
