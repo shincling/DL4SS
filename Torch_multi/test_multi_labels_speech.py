@@ -376,7 +376,7 @@ def main():
         para_name='param_speech_123onezeroag_WSJ0_multilabel_epoch80'#83.6
         para_name='param_speech_123onezeroag1_WSJ0_multilabel_epoch45'
         para_name='param_speech_123onezeroag2_WSJ0_multilabel_epoch40'
-        para_name='param_speech_123onezeroag3_WSJ0_multilabel_epoch40'
+        para_name='param_speech_123onezeroag4_WSJ0_multilabel_epoch75'
         # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
@@ -419,14 +419,16 @@ def main():
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{} recall--{}'.format(all_num_batch,acc1,all_line_batch,acc2,recall_rate)
-            continue
+            # continue
             # if epoch_idx==0 and batch_idx<50:
             #     loss=loss_func(mix_speech,100*y_map)
             # else:
             #     loss=loss_func(mix_speech,y_map)
             # loss=loss_func(mix_speech,30*y_map)
             loss=loss_func(mix_speech,y_map)
-            print 'loss this batch:',loss.data.cpu().numpy()
+            loss_sum=loss_func(mix_speech.sum(1),y_map.sum(1))
+            print 'loss this batch:',loss.data.cpu().numpy(),loss_sum.data.cpu().numpy()
+            loss=loss+0.2*loss_sum
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
