@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import time
-import config
+import config_WSJ0_dB as config
 from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
 import myNet
 from test_multi_labels_speech import multi_label_vector
@@ -19,6 +19,7 @@ import soundfile as sf
 # import matlab.engine
 # from separation import bss_eval_sources
 import bss_test
+
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
@@ -47,10 +48,9 @@ def bss_eval_fromGenMap(multi_mask,x_input,top_k_mask_mixspeech,dict_idx2spk,dat
             y_pre_map=each_pre[idx].data.cpu().numpy()
             #如果第二个通道概率比较大
             if idx==0 and s_idx[0].data.cpu().numpy()>s_idx[1].data.cpu().numpy():
-                y_pre_map=1-each_pre[1].data.cpu().numpy()
+                 y_pre_map=1-each_pre[1].data.cpu().numpy()
             if idx==1 and s_idx[0].data.cpu().numpy()<s_idx[1].data.cpu().numpy():
-                y_pre_map=1-each_pre[0].data.cpu().numpy()
-
+                 y_pre_map=1-each_pre[0].data.cpu().numpy()
             y_pre_map=y_pre_map*xxx
             _pred_spec = y_pre_map* np.exp(1j * phase_mix)
             wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT)
@@ -475,9 +475,9 @@ def main():
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbagnosum_WSJ0_hidden3d_90'))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbagnosum_WSJ0_emblayer_90'))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbagnosum_WSJ0_attlayer_90'))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_hidden3d_190',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_emblayer_190',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_attlayer_190',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -514,7 +514,8 @@ def main():
                     mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
                     y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
 
-            top_k_mask_mixspeech,top_k_sort_index=top_k_mask(mix_speech_output,alpha=-0.5,top_k=2) #torch.Float型的
+            max_num_labels=2
+            top_k_mask_mixspeech,top_k_sort_index=top_k_mask(mix_speech_output,alpha=-0.5,top_k=max_num_labels) #torch.Float型的
             top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
 
