@@ -28,7 +28,7 @@ random.seed(1)
 test_all_outputchannel=0
 config.BATCH_SIZE=1
 
-def bss_eval_recu(multi_mask,x_input,top_k_mask_mixspeech,spk_name,data,num_step):
+def bss_eval_recu(multi_mask,x_input,top_k_mask_mixspeech,spk_name,data,num_step,batch_idx):
     if config.Out_Sep_Result:
         dst='batch_output'
 
@@ -46,11 +46,11 @@ def bss_eval_recu(multi_mask,x_input,top_k_mask_mixspeech,spk_name,data,num_step
             min_len = len(wav_pre)
             if test_all_outputchannel:
                 min_len =  len(wav_pre)
-            sf.write('batch_output/{}_testspk_{}_pre.wav'.format(num_step,spk_name),wav_pre[:min_len],config.FRAME_RATE,)
+            sf.write('batch_output/{}_{}testspk_{}_pre.wav'.format(batch_idx,num_step,spk_name),wav_pre[:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
-def bss_eval_groundtrue(data):
-    if config.Out_Sep_Result:
+def bss_eval_groundtrue(data,batch_idx):
+    if 0 and config.Out_Sep_Result:
         dst='batch_output'
         if os.path.exists(dst):
             print " cleanup: " + dst + "/"
@@ -68,7 +68,7 @@ def bss_eval_groundtrue(data):
             _genture_spec = y_true_map * np.exp(1j * phase_mix)
             wav_genTrue=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
             min_len = len(each_wav)
-            sf.write('batch_output/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+            sf.write('batch_output/{}_{}_genTrue.wav'.format(batch_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
 
 class ATTENTION(nn.Module):
     def __init__(self,hidden_size,mode='dot'):
@@ -198,12 +198,14 @@ def top_k_mask(batch_pro,alpha,top_k):
     sort_result,sort_index=torch.sort(batch_pro,1,True) #先排个序
     sort_index=sort_index[:,:top_k] #选出每行的top_k的id
     sort_result=torch.sum(sort_result>alpha,1)
+    if not sort_result.data.cpu().numpy()[0]:
+        return final,[[]]
     for line_idx in range(size[0]):
         line_top_k=sort_index[line_idx][:int(sort_result[line_idx].data.cpu().numpy())]
         line_top_k=line_top_k.data.cpu().numpy()
         for i in line_top_k:
             final[line_idx,i]=1
-    return final,sort_index
+    return final,sort_index.data.cpu().numpy()
 
 def main():
     print('go to model')
@@ -269,6 +271,11 @@ def main():
             print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
         print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
+        dst='batch_output'
+        if os.path.exists(dst):
+            print " cleanup: " + dst + "/"
+            shutil.rmtree(dst)
+        os.makedirs(dst)
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             # train_data_gen=prepare_data('once','train')
@@ -294,14 +301,26 @@ def main():
                     y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
             recu_spk_list=OrderedDict() #每step对应spk以及分离出来的目标语音
             speech_history=[] #将每step剩余speech 频谱的历史记录下来
-            bss_eval_groundtrue(train_data)
+            bss_eval_groundtrue(train_data,batch_idx)
+
+            now_feas=train_data['mix_feas']
             while True:
-                speech_history.append(mix_feas)
-                max_num_labels=1
+                speech_history.append(now_feas)
+                max_num_labels=3
                 top_k_mask_mixspeech,top_k_sort_index=top_k_mask(mix_speech_output,alpha=-0.5,top_k=max_num_labels) #torch.Float型的
-                top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
+                # top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
+                top_k_mask_idx=top_k_sort_index
+                #过滤一下，把之前见过的spk过滤掉
+                print 'predict spk:',top_k_mask_idx[0]
+                for k in top_k_mask_idx[0]:
+                    if k not in recu_spk_list.keys():
+                        top_k_mask_idx=[[k]]
+                        break
+                print 'flitered spk:',top_k_mask_idx[0]
+                # 如果过滤完了之后啥也没有了，那么就结束了
                 if len(top_k_mask_idx[0])==0:
                     break
+                # elif top_k_mask_idx[0][0] in speech_history
 
                 mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
 
@@ -323,23 +342,29 @@ def main():
                 # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
                 # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
 
-                x_input_map=Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
+                x_input_map=Variable(torch.from_numpy(now_feas)).cuda()
                 # print x_input_map.size()
                 x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
                 # predict_multi_map=multi_mask*x_input_map_multi
                 predict_multi_map=multi_mask*x_input_map_multi #该说话人预测出来的频谱
                 recu_spk_list[top_k_mask_idx[0][0]]=predict_multi_map
 
+                pre_spk=dict_idx2spk[top_k_mask_idx[0][0]]
                 num_step=len(recu_spk_list)
-                print 'Now output the {} th spk...'.format(num_step)
-                bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,dict_idx2spk[top_k_mask_idx[0][0]],train_data,num_step-1)
+                print 'Now output the {} th spk , closest to spk <{}> in train list.'.format(num_step,pre_spk)
+                bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step-1,batch_idx)
 
-                if num_step>=1:
+                if num_step>=2:
                     break
 
-            # SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
-            # print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
-            1/0
+                now_feas=(2*(1-multi_mask)*x_input_map_multi).data.cpu().numpy().reshape(1,mix_speech_len,speech_fre)
+                mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(now_feas)).cuda())
+                mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(now_feas)).cuda())
+
+
+        SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+        print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
+        # 1/0
 
 
 
