@@ -439,6 +439,10 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
+        if epoch_idx&50==0:
+            for ee in optimizer.param_groups:
+                ee['lr']/=2
+
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
