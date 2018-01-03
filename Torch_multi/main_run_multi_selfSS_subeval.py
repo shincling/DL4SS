@@ -61,6 +61,13 @@ def bss_eval_fromGenMap(multi_mask,x_input,top_k_mask_mixspeech,dict_idx2spk,dat
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
+    for sample_idx,each_sample in enumerate(data['multi_spk_wav_list']):
+        for each_spk in each_sample.keys():
+            this_spk=each_spk
+            wav_genTrue=each_sample[this_spk]
+            min_len = 39936
+            sf.write('batch_output/{}_{}_realTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+
     for sample_idx,each_sample in enumerate(data['multi_spk_fea_list']):
         _mix_spec=data['mix_phase'][sample_idx]
         phase_mix = np.angle(_mix_spec)
@@ -475,9 +482,18 @@ def main():
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_hidden3d_190',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_emblayer_190',map_location={'cuda:1':'cuda:0'}))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_attlayer_190',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_hidden3d_350',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_emblayer_350',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_attlayer_350',map_location={'cuda:1':'cuda:0'}))
+
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_hidden3d_560',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_emblayer_560',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_attlayer_560',map_location={'cuda:1':'cuda:0'}))
+
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_hidden3d_460',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_emblayer_460',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_attlayer_460',map_location={'cuda:1':'cuda:0'}))
+
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted

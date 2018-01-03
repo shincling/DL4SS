@@ -59,6 +59,13 @@ def bss_eval_groundtrue(data,batch_idx):
     for sample_idx,each_wav in enumerate(data['mix_wav']):
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),each_wav,config.FRAME_RATE,)
 
+    for sample_idx,each_sample in enumerate(data['multi_spk_wav_list']):
+        for each_spk in each_sample.keys():
+            this_spk=each_spk
+            wav_genTrue=each_sample[this_spk]
+            min_len = 39936
+            sf.write('batch_output/{}_{}_realTrue.wav'.format(batch_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+
     for sample_idx,each_sample in enumerate(data['multi_spk_fea_list']):
         _mix_spec=data['mix_phase'][sample_idx]
         phase_mix = np.angle(_mix_spec)
@@ -257,9 +264,17 @@ def main():
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_hidden3d_190',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_emblayer_190',map_location={'cuda:1':'cuda:0'}))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_attlayer_190',map_location={'cuda:1':'cuda:0'}))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_hidden3d_250',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_emblayer_250',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_attlayer_250',map_location={'cuda:1':'cuda:0'}))
+
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_hidden3d_560',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_emblayer_560',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_attlayer_560',map_location={'cuda:1':'cuda:0'}))
+
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_hidden3d_460',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_emblayer_460',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_attlayer_460',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -308,7 +323,7 @@ def main():
             while True:
                 speech_history.append(now_feas)
                 max_num_labels=3
-                top_k_mask_mixspeech,top_k_sort_index=top_k_mask(mix_speech_output,alpha=-0.5,top_k=max_num_labels) #torch.Float型的
+                top_k_mask_mixspeech,top_k_sort_index=top_k_mask(mix_speech_output,alpha=-0.3,top_k=max_num_labels) #torch.Float型的
                 # top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
                 top_k_mask_idx=top_k_sort_index
                 #过滤一下，把之前见过的spk过滤掉
@@ -340,6 +355,8 @@ def main():
                 att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
                 # print att_multi_speech.size()
                 multi_mask=att_multi_speech
+                # multi_mask=(att_multi_speech>0.5)
+                # multi_mask=Variable(torch.from_numpy(np.float32(multi_mask.data.cpu().numpy()))).cuda()
                 # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
                 # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
 
@@ -357,6 +374,8 @@ def main():
 
                 if num_step>=2:
                     break
+                    bss_eval_recu(1-multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step,batch_idx)
+                    break
 
                 now_feas=((1-multi_mask)*x_input_map_multi).data.cpu().numpy().reshape(1,mix_speech_len,speech_fre)
                 mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(now_feas)).cuda())
@@ -366,7 +385,7 @@ def main():
         # SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
         # print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
         # 1/0
-        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 2))
+        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 3))
         print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM_total.shape,epoch_idx,SDR_SUM_total.mean())
 
 
