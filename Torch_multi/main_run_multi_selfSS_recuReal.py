@@ -28,6 +28,29 @@ random.seed(1)
 test_all_outputchannel=0
 config.BATCH_SIZE=1
 
+def bss_eval_fromGenMap(multi_mask,x_input,top_k_mask_mixspeech,dict_idx2spk,data,batch_idx):
+    sample_idx=0
+    for each_pre,mask in zip(multi_mask,top_k_mask_mixspeech):
+        _mix_spec=data['mix_phase'][sample_idx]
+        xxx=x_input[sample_idx].data.cpu().numpy()
+        phase_mix = np.angle(_mix_spec)
+        for idx,each_spk in enumerate(each_pre):
+            this_spk=idx
+            y_pre_map=each_pre[idx].data.cpu().numpy()
+            #如果第二个通道概率比较大
+            # if idx==0 and s_idx[0].data.cpu().numpy()>s_idx[1].data.cpu().numpy():
+            #     y_pre_map=1-each_pre[1].data.cpu().numpy()
+            # if idx==1 and s_idx[0].data.cpu().numpy()<s_idx[1].data.cpu().numpy():
+            #     y_pre_map=1-each_pre[0].data.cpu().numpy()
+            y_pre_map=y_pre_map*xxx
+            _pred_spec = y_pre_map* np.exp(1j * phase_mix)
+            wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT)
+            min_len = len(wav_pre)
+            if test_all_outputchannel:
+                min_len =  len(wav_pre)
+            sf.write('batch_output/{}_testspk{}_pre.wav'.format(batch_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
+        # sample_idx+=1
+
 def bss_eval_recu(multi_mask,x_input,top_k_mask_mixspeech,spk_name,data,num_step,batch_idx):
     if config.Out_Sep_Result:
         dst='batch_output'
@@ -287,7 +310,7 @@ def main():
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
-        print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
+        # print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
         dst='batch_output'
         if os.path.exists(dst):
             print " cleanup: " + dst + "/"
@@ -371,11 +394,10 @@ def main():
                 pre_spk=dict_idx2spk[top_k_mask_idx[0][0]]
                 num_step=len(recu_spk_list)
                 print 'Now output the {} th spk , closest to spk <{}> in train list.'.format(num_step,pre_spk)
-                bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step-1,batch_idx)
+                # bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step-1,batch_idx)
 
                 if num_step>=2:
-                    break
-                    bss_eval_recu(1-multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step,batch_idx)
+                    # bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step,batch_idx)
                     break
 
                 now_feas=((1-multi_mask)*x_input_map_multi).data.cpu().numpy().reshape(1,mix_speech_len,speech_fre)
@@ -383,10 +405,40 @@ def main():
                 mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(now_feas)).cuda())
 
 
+            cal_spk=recu_spk_list.keys()
+            mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,cal_spk) # bs*num_labels（最多混合人个数）×Embedding的大小
+
+            top_k_num=len(cal_spk)
+
+            #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
+            #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
+            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
+            mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
+            mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
+            mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
+            # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+            att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
+            att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
+            # print att_multi_speech.size()
+            att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
+            # print att_multi_speech.size()
+            multi_mask=att_multi_speech
+            # multi_mask=(att_multi_speech>0.5)
+            # multi_mask=Variable(torch.from_numpy(np.float32(multi_mask.data.cpu().numpy()))).cuda()
+            # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
+            # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
+
+            x_input_map=Variable(torch.from_numpy(train_data['mix_feas'])).cuda()
+            # print x_input_map.size()
+            x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
+            bss_eval_fromGenMap(multi_mask,x_input_map,top_k_mask_mixspeech,dict_idx2spk,train_data,batch_idx)
+
+
+
         # SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
         # print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
         # 1/0
-        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 3))
+        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 2))
         print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM_total.shape,epoch_idx,SDR_SUM_total.mean())
 
 
