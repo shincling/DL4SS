@@ -65,12 +65,14 @@ MAT_ENG = []
 CONFIG_FILE = './config.cfg'
 # mode=1 纯净语音刺激, 2 图片刺激, 3 视频刺激, 4 top-down概念刺激
 MODE = 3
+MODE = 1
 # 数据集
 # 1包括：THCHS-30 或者 WSJ0, TIMIT做为模型调试
 # 2包括：ＭNIST
 # 3包括：AVA,GRID
 # 4包括：
 DATASET = 'GRID'
+DATASET = 'WSJ0'
 valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
 aim_path='./Dataset_Multi/'+str(MODE)+'/'+DATASET
 # 日志记录，Record log into this file, such as dl4ss_output.log_20170303_110305
@@ -105,7 +107,7 @@ MAX_EPOCH = 250
 # epoch size
 EPOCH_SIZE = 300
 # batch size
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate
@@ -119,13 +121,14 @@ SHUFFLE_BATCH = True
 # 设定最小混叠说话人数，Minimum number of mixed speakers for training
 MIN_MIX = 2
 # 设定最大混叠说话人数，Maximum number of mixed speakers for training
-MAX_MIX = 3
+MAX_MIX = 2
 # 设定speech multi acc的阈值alpha
 ALPHA = 0.5
+dB=5 #混合语音的最大dB数目
 # 设置训练/开发/验证模型的最大语音长度(秒)
 MAX_LEN = 5
 MAX_LEN = FRAME_RATE*MAX_LEN
-MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
+# MAX_LEN = update_max_len([TRAIN_LIST], MAX_LEN)
 # 帧长
 WINDOWS = FRAME_LENGTH
 # 训练模型权重的目录
@@ -145,6 +148,7 @@ BGD_NOISE_WAV = None
 BGD_NOISE_FILE = 'Dataset_Multi/BGD_150203_010_STR.CH1.wav'
 Out_Sep_Result=True
 
+channel_first=True
 if MODE==2:
     '''Params for Image'''
     ImageSize=(28,28)

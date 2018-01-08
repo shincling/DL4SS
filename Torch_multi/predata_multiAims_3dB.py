@@ -121,13 +121,13 @@ def prepare_data(mode,train_or_test):
                 multi_wav_dict_this_sample={}
 
                 channel_act=None
-                if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
-                    dB_rate=10**(config.dB/20.0*np.random.rand())#e**(0——0.5)
+                if 1 and config.dB and mix_k==2:
+                    dB_rate=10**(config.dB/20.0*np.random.rand())#10**(0——0.25)
                     if np.random.rand()>0.5: #选择哪个通道来
                         channel_act=1
                     else:
                         channel_act=2
-                    print 'channel to change with dB:',channel_act,dB_rate
+                    # print 'channel to change with dB:',channel_act,dB_rate
 
                 if 1 and config.dB and config.MAX_MIX==3 and mix_k==3:
                     'DB with 3 channels.'
@@ -189,8 +189,12 @@ def prepare_data(mode,train_or_test):
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
                         aim_spk_speech=signal
                         aim_spkid.append(aim_spkname)
-                        signal=signal*dB_rate_normal
-                        print 'channel 1(normal):',dB_rate_normal
+                        if mix_k==2 and channel_act==1:
+                            signal=signal*dB_rate
+                            print 'channel 1 for 2db:',dB_rate
+                        if mix_k==3:
+                            signal=signal*dB_rate_normal
+                            print 'channel 1(normal):',dB_rate_normal
                         wav_mix=signal
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                     config.FRAME_SHIFT)))
@@ -201,10 +205,14 @@ def prepare_data(mode,train_or_test):
 
                         #视频处理部分，为了得到query
                     else:
-                        if k==1:
+                        if mix_k==2 and channel_act==2:
+                            signal=signal*dB_rate
+                            print 'channel 2 for 2db:',dB_rate
+
+                        if mix_k==3 and k==1:
                             signal=signal*dB_rate_large
                             print 'channel 2(large):',dB_rate_large
-                        if k==2:
+                        if mix_k==3 and k==2:
                             signal=signal*dB_rate_small
                             print 'channel 3(small):',dB_rate_small
 
@@ -233,7 +241,7 @@ def prepare_data(mode,train_or_test):
                 mix_phase.append(np.transpose(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
                                                                                      config.FRAME_SHIFT,)))
                 batch_idx+=1
-                print 'batch_dix:{}/{}'.format(batch_idx,config.BATCH_SIZE),
+                print 'batch_dix:{}/{}'.format(batch_idx,config.BATCH_SIZE)
                 if batch_idx==config.BATCH_SIZE: #填满了一个batch
                     mix_feas=np.array(mix_feas)
                     mix_phase=np.array(mix_phase)

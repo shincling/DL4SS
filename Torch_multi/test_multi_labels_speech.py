@@ -251,6 +251,7 @@ class MIX_SPEECH_classifier(nn.Module):
         # self.cnn3=nn.Conv2d(5, 5, (5, 3), stride=(2, 1), padding=(4, 2))
 
         self.Linear=nn.Linear(2*2*config.HIDDEN_UNITS,num_labels)
+
         # self.Linear_cnn=nn.Linear(16440,num_labels)
 
     def forward(self,x):
@@ -258,6 +259,7 @@ class MIX_SPEECH_classifier(nn.Module):
         x,hidden=self.layer(x)
         x=x.contiguous() #bs*len*600
         x=torch.mean(x,1)
+        # x=F.dropout(x,0.5)
         out=F.sigmoid(self.Linear(x))
 
         # print xx.size()
@@ -377,17 +379,20 @@ def main():
         para_name='param_speech_123onezeroag1_WSJ0_multilabel_epoch45'
         para_name='param_speech_123onezeroag2_WSJ0_multilabel_epoch40'
         para_name='param_speech_123onezeroag4_WSJ0_multilabel_epoch75'
+        para_name='param_speech_123onezeroag3_WSJ0_multilabel_epoch40'
+        para_name='param_speech_123onezeroag4_WSJ0_multilabel_epoch20'
+        para_name='param_speech_4lstm_multilabelloss30map_epoch440'
         # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
 
-    optimizer = torch.optim.Adagrad([{'params':mix_speech_class.parameters()},
+    optimizer = torch.optim.Adam([{'params':mix_speech_class.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
                                  # {'params':query_video_layer.dense.parameters()},
                                  # {'params':query_video_layer.Linear.parameters()},
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.0002)
+                                 ], lr=0.0001)
     # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
@@ -396,6 +401,9 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
+        if epoch_idx&50==0:
+            for ee in optimizer.param_groups:
+                ee['lr']/=2
         acc_all,acc_line=0,0
         if epoch_idx>0:
             print 'recal_rate this epoch {}: {}'.format(epoch_idx,recall_rate_list.mean())
@@ -409,7 +417,7 @@ def main():
             y_spk,y_map=multi_label_vector(train_data['multi_spk_fea_list'],dict_spk2idx)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
             y_out_batch=mix_speech.data.cpu().numpy()
-            acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=0.1,top_k_num=0)
+            acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=-0.1,top_k_num=3)
             acc_all+=acc1
             acc_line+=acc2
             recall_rate_list=np.append(recall_rate_list,recall_rate)
@@ -419,7 +427,7 @@ def main():
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{} recall--{}'.format(all_num_batch,acc1,all_line_batch,acc2,recall_rate)
-            # continue
+            continue
             # if epoch_idx==0 and batch_idx<50:
             #     loss=loss_func(mix_speech,100*y_map)
             # else:
@@ -428,6 +436,7 @@ def main():
             loss=loss_func(mix_speech,y_map)
             loss_sum=loss_func(mix_speech.sum(1),y_map.sum(1))
             print 'loss this batch:',loss.data.cpu().numpy(),loss_sum.data.cpu().numpy()
+            continue
             loss=loss+0.2*loss_sum
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
@@ -435,7 +444,7 @@ def main():
 
         if config.Save_param and epoch_idx > 10 and epoch_idx % 5 == 0:
             try:
-                torch.save(mix_speech_class.state_dict(), 'params/param_speech_123onezeroag4_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
+                torch.save(mix_speech_class.state_dict(), 'params/param_speech_123onezeroag5dropout_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
             except:
                 print '\n\nSave paras failed ~! \n\n\n'
 
