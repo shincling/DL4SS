@@ -100,7 +100,7 @@ def prepare_data(mode,train_or_test):
             all_spk_train=os.listdir(data_path+'/train')
             all_spk_eval=os.listdir(data_path+'/eval')
             all_spk_test=os.listdir(data_path+'/test')
-            all_spk_evaltest=os.listdir(data_path+'/test')
+            all_spk_evaltest=os.listdir(data_path+'/evaL_test')
             all_spk = all_spk_train+all_spk_eval+all_spk_test
             spk_samples_list={}
             batch_idx=0
