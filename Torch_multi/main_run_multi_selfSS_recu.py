@@ -261,6 +261,7 @@ def main():
     if 1 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_123onezeroag3_WSJ0_multilabel_epoch40'))
+        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_123onezeroag4_WSJ0_multilabel_epoch70'))
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
@@ -271,11 +272,27 @@ def main():
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_hidden3d_560',map_location={'cuda:1':'cuda:0'}))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_emblayer_560',map_location={'cuda:1':'cuda:0'}))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_attlayer_560',map_location={'cuda:1':'cuda:0'}))
+        #
+        # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_4lstm_multilabelloss30map_epoch440'))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_hidden3d_460',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_emblayer_460',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_attlayer_460',map_location={'cuda:1':'cuda:0'}))
 
-        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_4lstm_multilabelloss30map_epoch440'))
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_hidden3d_460',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_emblayer_460',map_location={'cuda:1':'cuda:0'}))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_attlayer_460',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag_WSJ0_hidden3d_90',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag_WSJ0_emblayer_90',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag_WSJ0_attlayer_90',map_location={'cuda:1':'cuda:0'}))
+        #
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_attlayer_430',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_hidden3d_430',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_emblayer_430',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_attlayer_500',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_hidden3d_500',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_emblayer_500',map_location={'cuda:1':'cuda:0'}))
+
+        att_speech_layer.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_attlayer_90',map_location={'cuda:1':'cuda:0'}))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_hidden3d_90',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_emblayer_90',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -386,7 +403,7 @@ def main():
         # SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
         # print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
         # 1/0
-        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 3))
+        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 2))
         print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM_total.shape,epoch_idx,SDR_SUM_total.mean())
 
 
