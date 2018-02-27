@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config_WSJ0_dB as config
-from predata_multiAims_3dB import prepare_data,prepare_datasize,prepare_data_fake
+from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
 import myNet
 from test_multi_labels_speech import multi_label_vector
 import os
@@ -21,6 +21,7 @@ import soundfile as sf
 import bss_test
 
 
+config.EPOCH_SIZE=300
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
 random.seed(1)
@@ -47,10 +48,10 @@ def bss_eval_fromGenMap(multi_mask,x_input,top_k_mask_mixspeech,dict_idx2spk,dat
             this_spk=idx
             y_pre_map=each_pre[idx].data.cpu().numpy()
             #如果第二个通道概率比较大
-            if idx==0 and s_idx[0].data.cpu().numpy()>s_idx[1].data.cpu().numpy():
-                 y_pre_map=1-each_pre[1].data.cpu().numpy()
-            if idx==1 and s_idx[0].data.cpu().numpy()<s_idx[1].data.cpu().numpy():
-                 y_pre_map=1-each_pre[0].data.cpu().numpy()
+            # if idx==0 and s_idx[0].data.cpu().numpy()>s_idx[1].data.cpu().numpy():
+            #      y_pre_map=1-each_pre[1].data.cpu().numpy()
+            # if idx==1 and s_idx[0].data.cpu().numpy()<s_idx[1].data.cpu().numpy():
+            #      y_pre_map=1-each_pre[0].data.cpu().numpy()
             y_pre_map=y_pre_map*xxx
             _pred_spec = y_pre_map* np.exp(1j * phase_mix)
             wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT)
@@ -480,6 +481,7 @@ def main():
     if 1 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_123onezeroag3_WSJ0_multilabel_epoch40'))
+        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_123onezeroag4_WSJ0_multilabel_epoch70'))
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
@@ -495,13 +497,27 @@ def main():
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_emblayer_460',map_location={'cuda:1':'cuda:0'}))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_attlayer_460',map_location={'cuda:1':'cuda:0'}))
 
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_hidden3d_370',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_emblayer_370',map_location={'cuda:1':'cuda:0'}))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_attlayer_370',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_hidden3d_370',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_emblayer_370',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_attlayer_370',map_location={'cuda:1':'cuda:0'}))
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_4db_WSJ0_hidden3d_110',map_location={'cuda:1':'cuda:0'}))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_4db_WSJ0_emblayer_110',map_location={'cuda:1':'cuda:0'}))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_4db_WSJ0_attlayer_110',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_4lstm_multilabelloss30map_epoch440'))
+        # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_4lstm_multilabelloss30map_epoch440'))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbdropoutag_WSJ0_attlayer_220',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbdropoutag_WSJ0_hidden3d_220',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbdropoutag_WSJ0_emblayer_220',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_attlayer_495',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_hidden3d_495',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_emblayer_495',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_attlayer_90',map_location={'cuda:1':'cuda:0'}))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_hidden3d_90',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_emblayer_90',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_attlayer_430',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_hidden3d_430',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_emblayer_430',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -516,9 +532,9 @@ def main():
         print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
-            # train_data_gen=prepare_data('once','train')
+            train_data_gen=prepare_data('once','train')
             # train_data_gen=prepare_data('once','test')
-            train_data_gen=prepare_data('once','eval_test')
+            # train_data_gen=prepare_data('once','eval_test')
             train_data=train_data_gen.next()
 
             '''混合语音len,fre,Emb 3D表示层'''
@@ -528,13 +544,13 @@ def main():
             '''Speech self Sepration　语音自分离部分'''
             mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
             #从数据里得到ground truth的说话人名字和vector
-            # y_spk_list=[one.keys() for one in train_data['multi_spk_fea_list']]
-            # y_spk_list= train_data['multi_spk_fea_list']
-            # y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
+            y_spk_list=[one.keys() for one in train_data['multi_spk_fea_list']]
+            y_spk_list= train_data['multi_spk_fea_list']
+            y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
             # 如果训练阶段使用Ground truth的分离结果作为判别
-            if 0 and config.Ground_truth:
+            if 1 and config.Ground_truth:
                 mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
-                if test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
+                if 0 and test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
                     mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
                     y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
 

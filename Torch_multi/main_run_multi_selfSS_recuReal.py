@@ -7,6 +7,11 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import config_WSJ0_dB as config
+
+config.EMBEDDING_SIZE = 50
+config.MIN_MIX=2
+config.MAX_MIX=2
+# from predata_multiAims_noisedB import prepare_data
 from predata_multiAims_dB import prepare_data
 import myNet
 from test_multi_labels_speech import multi_label_vector
@@ -152,6 +157,7 @@ class MIX_SPEECH(nn.Module):
             input_size=input_fre,
             hidden_size=config.HIDDEN_UNITS,
             num_layers=config.NUM_LAYERS,
+            # num_layers=2,
             batch_first=True,
             bidirectional=True
         )
@@ -284,6 +290,7 @@ def main():
     if 1 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_123onezeroag3_WSJ0_multilabel_epoch40'))
+        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_123onezeroag4_WSJ0_multilabel_epoch70'))
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
@@ -291,17 +298,55 @@ def main():
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_emblayer_250',map_location={'cuda:1':'cuda:0'}))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag1nosum_WSJ0_attlayer_250',map_location={'cuda:1':'cuda:0'}))
 
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_hidden3d_560',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_emblayer_560',map_location={'cuda:1':'cuda:0'}))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_attlayer_560',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_hidden3d_560',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_emblayer_560',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_db_WSJ0_attlayer_560',map_location={'cuda:1':'cuda:0'}))
 
-        mix_speech_classifier.load_state_dict(torch.load('params/param_speech_4lstm_multilabelloss30map_epoch440'))
+        # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_4lstm_multilabelloss30map_epoch440'))
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_hidden3d_460',map_location={'cuda:1':'cuda:0'}))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_emblayer_460',map_location={'cuda:1':'cuda:0'}))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbag2sum_WSJ0_attlayer_460',map_location={'cuda:1':'cuda:0'}))
+
         # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_hidden3d_370',map_location={'cuda:1':'cuda:0'}))
         # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_emblayer_370',map_location={'cuda:1':'cuda:0'}))
         # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbdropout_WSJ0_attlayer_370',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix101_dbdropoutag_WSJ0_attlayer_220',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_dbdropoutag_WSJ0_hidden3d_220',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_dbdropoutag_WSJ0_emblayer_220',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_dbdropoutag_WSJ0_attlayer_180',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_dbdropoutag_WSJ0_hidden3d_180',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_dbdropoutag_WSJ0_emblayer_180',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_attlayer_495',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_hidden3d_495',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_emblayer_495',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_attlayer_90',map_location={'cuda:1':'cuda:0'}))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_hidden3d_90',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_emblayer_90',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_attlayer_180',map_location={'cuda:1':'cuda:0'}))
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_hidden3d_180',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_db2dropout_WSJ0_emblayer_180',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2or3_db2dropout_WSJ0_attlayer_95',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2or3_db2dropout_WSJ0_hidden3d_95',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2or3_db2dropout_WSJ0_emblayer_95',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_attlayer_500',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_hidden3d_500',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix1to3_dbdropoutag1_WSJ0_emblayer_500',map_location={'cuda:1':'cuda:0'}))
+
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2_40lstm2dbdro_WSJ0_attlayer_835',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_40lstm2dbdro_WSJ0_hidden3d_835',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_40lstm2dbdro_WSJ0_emblayer_835',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mix2_40lstmdbdropout_WSJ0_attlayer_200',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix2_40lstm3dbdropout_WSJ0_hidden3d_200',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix2_40lstm3dbdropout_WSJ0_emblayer_200',map_location={'cuda:1':'cuda:0'}))
+
+        '''with Noise'''
+        # att_speech_layer.load_state_dict(torch.load('params/param_noicemix2or3_db2dropout_WSJ0_attlayer_80',map_location={'cuda:1':'cuda:0'}))
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_noicemix2or3_db2dropout_WSJ0_hidden3d_80',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_noicemix2or3_db2dropout_WSJ0_emblayer_80',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -399,7 +444,7 @@ def main():
                 print 'Now output the {} th spk , closest to spk <{}> in train list.'.format(num_step,pre_spk)
                 # bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step-1,batch_idx)
 
-                if num_step>=3:
+                if num_step>=2:
                     # bss_eval_recu(multi_mask,x_input_map,top_k_mask_mixspeech,pre_spk,train_data,num_step,batch_idx)
                     break
 
@@ -441,7 +486,7 @@ def main():
         # SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
         # print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM.shape,epoch_idx,SDR_SUM.mean())
         # 1/0
-        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 3))
+        SDR_SUM_total = np.append(SDR_SUM_total, bss_test.cal('batch_output/', 2))
         print 'SDR_SUM (len:{}) for epoch {} : {}'.format(SDR_SUM_total.shape,epoch_idx,SDR_SUM_total.mean())
 
 
