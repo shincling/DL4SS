@@ -417,7 +417,7 @@ def main():
             y_spk,y_map=multi_label_vector(train_data['multi_spk_fea_list'],dict_spk2idx)
             y_map=Variable(torch.from_numpy(y_map)).cuda()
             y_out_batch=mix_speech.data.cpu().numpy()
-            acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=-0.1,top_k_num=3)
+            acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=-0.1,top_k_num=2)
             acc_all+=acc1
             acc_line+=acc2
             recall_rate_list=np.append(recall_rate_list,recall_rate)
