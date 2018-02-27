@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import time
-import config
+import config_WSJ0_dB as config
 from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
 import myNet
 from test_multi_labels_speech import multi_label_vector
@@ -426,7 +426,7 @@ def main():
                                  {'params':att_speech_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=0.0002)
-    if 1 and config.Load_param:
+    if 0 and config.Load_param:
         # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
         # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
@@ -439,7 +439,7 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        if epoch_idx&50==0:
+        if epoch_idx%50==0:
             for ee in optimizer.param_groups:
                 ee['lr']/=2
         if epoch_idx>0:
