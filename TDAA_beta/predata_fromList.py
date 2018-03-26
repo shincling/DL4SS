@@ -85,15 +85,17 @@ def prepare_data(mode,train_or_test):
             if train_or_test=='test':
                 aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
 
-            all_samples_list=open(aim_list_path).readlines()
+            all_samples_list=open(aim_list_path).readlines()[:100]
             number_samples=len(all_samples_list)
             batch_total=number_samples/config.BATCH_SIZE
+            print 'batch_total_num:',batch_total
             batch_idxx=0
             if config.SHUFFLE_BATCH:
                 random.shuffle(all_samples_list)
 
             while True:
                 mix_len=0
+                print batch_idxx
                 if batch_idxx>=batch_total:
                     yield False
                 # mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
@@ -106,9 +108,9 @@ def prepare_data(mode,train_or_test):
                 elif train_or_test=='eval_test':
                     aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
-                aim_spk_k=re.findall('/([0-9][0-9].)/',aim_list_path[batch_idx][0])
-                aim_spk_db_k=map(float,re.findall(' (.*?) ',aim_list_path[batch_idx][0]))
-                aim_spk_samplename_k=map(float,re.findall('/.{8}\.wav ',aim_list_path[batch_idx][0]))
+                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[batch_idx])
+                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[batch_idx]))
+                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[batch_idx])
                 assert len(aim_spk_k)==mix_k==len(aim_spk_db_k)==len(aim_spk_samplename_k)
 
                 multi_fea_dict_this_sample={}
