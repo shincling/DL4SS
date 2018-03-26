@@ -95,8 +95,9 @@ def prepare_data(mode,train_or_test):
 
             while True:
                 mix_len=0
-                print batch_idxx
+                print 'batch_idxx:',batch_idxx
                 if batch_idxx>=batch_total:
+                    print '\nreturn False'
                     yield False
                 # mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
                 if train_or_test=='train':
@@ -213,7 +214,7 @@ def prepare_data(mode,train_or_test):
                         dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
                         dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}
                         yield all_spk,dict_spk_to_idx,dict_idx_to_spk,\
-                              aim_fea.shape[1],aim_fea.shape[2],32,len(all_spk)
+                              aim_fea.shape[1],aim_fea.shape[2],32,len(all_spk),batch_total
                               #上面的是：语音长度、语音频率、视频分割多少帧 TODO:后面把这个替换了query.shape[1]
                     elif mode=='once':
                         yield {'mix_wav':mix_speechs,

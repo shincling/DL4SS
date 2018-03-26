@@ -7,8 +7,9 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import time
-import config
-from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
+import config_WSJ0_dB as config
+# from predata_multiAims_dB import prepare_data,prepare_datasize
+from predata_fromList import prepare_data,prepare_datasize
 # import myNet
 
 np.random.seed(1)#设定种子
@@ -332,9 +333,10 @@ def main():
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     global_para=spk_global_gen.next()
     print global_para
-    spk_all_list,dict_spk2idx,dict_idx2spk,mix_speech_len,speech_fre,total_frames,spk_num_total=global_para
+    spk_all_list,dict_spk2idx,dict_idx2spk,mix_speech_len,speech_fre,total_frames,spk_num_total,batch_total=global_para
     del spk_global_gen
     num_labels=len(spk_all_list)
+    config.EPOCH_SIZE=batch_total
 
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
     #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
@@ -383,10 +385,13 @@ def main():
         if epoch_idx>0:
             print 'recal_rate this epoch {}: {}'.format(epoch_idx,recall_rate_list.mean())
         recall_rate_list=np.array([])
+
+        train_data_gen=prepare_data('once','train')
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
-            train_data_gen=prepare_data('once','train')
             train_data=train_data_gen.next()
+            if train_data==False:
+                break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
             mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
 
             y_spk,y_map=multi_label_vector(train_data['multi_spk_fea_list'],dict_spk2idx)
