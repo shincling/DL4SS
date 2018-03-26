@@ -76,21 +76,26 @@ def prepare_data(mode,train_or_test):
             spk_samples_list={}
             batch_idx=0
             mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
+
             list_path='./create-speaker-mixtures/'
-                if train_or_test=='train':
-                    aim_list_path=list_path+'mix_{}_spk_tr.txt'.format(mix_k)
-                if train_or_test=='valid':
-                    aim_list_path=list_path+'mix_{}_spk_cv.txt'.format(mix_k)
-                if train_or_test=='test':
-                    aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
+            if train_or_test=='train':
+                aim_list_path=list_path+'mix_{}_spk_tr.txt'.format(mix_k)
+            if train_or_test=='valid':
+                aim_list_path=list_path+'mix_{}_spk_cv.txt'.format(mix_k)
+            if train_or_test=='test':
+                aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
 
             all_samples_list=open(aim_list_path).readlines()
             number_samples=len(all_samples_list)
+            batch_total=number_samples/config.BATCH_SIZE
+            batch_idxx=0
             if config.SHUFFLE_BATCH:
                 random.shuffle(all_samples_list)
 
             while True:
                 mix_len=0
+                if batch_idxx>=batch_total:
+                    yield False
                 # mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
                 if train_or_test=='train':
                     aim_spk_k=random.sample(all_spk_train,mix_k)#本次混合的候选人
@@ -101,10 +106,10 @@ def prepare_data(mode,train_or_test):
                 elif train_or_test=='eval_test':
                     aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
-                aim_spk_k=re.findall('/([0-9][0-9].)/',aim_list_path[batch_idx][0]
-                aim_spk_db_k=map(float,re.findall(' (.*?) ',aim_list_path[batch_idx][0])
-                aim_spk_samplename_k=map(float,re.findall('/.{8}\.wav ',aim_list_path[batch_idx][0])
-                assert len(aim_spk_k)==mix_k==len(m_spk_db_k)==len(aim_spk_samplename_k)
+                aim_spk_k=re.findall('/([0-9][0-9].)/',aim_list_path[batch_idx][0])
+                aim_spk_db_k=map(float,re.findall(' (.*?) ',aim_list_path[batch_idx][0]))
+                aim_spk_samplename_k=map(float,re.findall('/.{8}\.wav ',aim_list_path[batch_idx][0]))
+                assert len(aim_spk_k)==mix_k==len(aim_spk_db_k)==len(aim_spk_samplename_k)
 
                 multi_fea_dict_this_sample={}
                 multi_wav_dict_this_sample={}
@@ -112,7 +117,7 @@ def prepare_data(mode,train_or_test):
 
                 if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
                     dB_rate=10**(config.dB/20.0*np.random.rand())#e**(0——0.5)
-                    print 'channel to change with dB:',channel_act,dB_rate
+                    print 'channel to change with dB:',dB_rate
 
                 for k,spk in enumerate(aim_spk_k):
                     #选择dB的通道～！
@@ -151,8 +156,6 @@ def prepare_data(mode,train_or_test):
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
                         aim_spk_speech=signal
                         aim_spkid.append(aim_spkname)
-                        if channel_act==1:
-                            signal=signal*dB_rate
                         wav_mix=signal
                         aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                     config.FRAME_SHIFT)))
@@ -163,8 +166,6 @@ def prepare_data(mode,train_or_test):
 
                         #视频处理部分，为了得到query
                     else:
-                        if channel_act==2:
-                            signal=signal*dB_rate
 
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
@@ -234,6 +235,7 @@ def prepare_data(mode,train_or_test):
                     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
                     multi_spk_fea_list=[]
                     multi_spk_wav_list=[]
+                    batch_idxx+=1
 
         else:
             raise ValueError('No such dataset:{} for Speech.'.format(config.DATASET))
