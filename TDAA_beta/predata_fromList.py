@@ -85,6 +85,7 @@ def prepare_data(mode,train_or_test):
                     aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
 
             all_samples_list=open(aim_list_path).readlines()
+            number_samples=len(all_samples_list)
             if config.SHUFFLE_BATCH:
                 random.shuffle(all_samples_list)
 
@@ -100,33 +101,26 @@ def prepare_data(mode,train_or_test):
                 elif train_or_test=='eval_test':
                     aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
+                aim_spk_k=re.findall('/([0-9][0-9].)/',aim_list_path[batch_idx][0]
+                aim_spk_db_k=map(float,re.findall(' (.*?) ',aim_list_path[batch_idx][0])
+                aim_spk_samplename_k=map(float,re.findall('/.{8}\.wav ',aim_list_path[batch_idx][0])
+                assert len(aim_spk_k)==mix_k==len(m_spk_db_k)==len(aim_spk_samplename_k)
+
                 multi_fea_dict_this_sample={}
                 multi_wav_dict_this_sample={}
+                multi_db_dict_this_sample={}
 
-                channel_act=None
                 if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
                     dB_rate=10**(config.dB/20.0*np.random.rand())#e**(0——0.5)
-                    if np.random.rand()>0.5: #选择哪个通道来
-                        channel_act=1
-                    else:
-                        channel_act=2
                     print 'channel to change with dB:',channel_act,dB_rate
+
                 for k,spk in enumerate(aim_spk_k):
                     #选择dB的通道～！
-                    #若是没有出现在整体列表内就注册进去,且第一次的时候读取所有的samples的名字
-                    if spk not in spk_samples_list:
-                        spk_samples_list[spk]=[]
-                        for ss in os.listdir(data_path+'/'+train_or_test+'/'+spk):
-                            spk_samples_list[spk].append(ss[:-4]) #去掉.wav后缀
-
-                        if 0: #这部分是选择独立同分布的
-                            #这个函数让spk_sanmples_list[spk]按照设定好的方式选择是train的部分还是test
-                            spk_samples_list[spk]=split_forTrainDevTest(spk_samples_list[spk],train_or_test)
-
-                    #这个时候这个spk已经注册了，所以直接从里面选就好了
-                    sample_name=random.sample(spk_samples_list[spk],1)[0]
-                    spk_samples_list[spk].remove(sample_name)#取出来一次之后，就把这个人去掉（避免一个batch里某段语音的重复出现）
-                    spk_speech_path=data_path+'/'+train_or_test+'/'+spk+'/'+sample_name+'.wav'
+                    sample_name=aim_spk_samplename_k[k]
+                    if train_or_test!='test':
+                        spk_speech_path=data_path+'/'+'train'+'/'+spk+'/'+sample_name+'.wav'
+                    else:
+                        spk_speech_path=data_path+'/'+'test'+'/'+spk+'/'+sample_name+'.wav'
 
                     signal, rate = sf.read(spk_speech_path)  # signal 是采样值，rate 是采样频率
                     if len(signal.shape) > 1:
