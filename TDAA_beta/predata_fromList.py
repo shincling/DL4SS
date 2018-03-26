@@ -92,10 +92,11 @@ def prepare_data(mode,train_or_test):
             batch_idxx=0
             if config.SHUFFLE_BATCH:
                 random.shuffle(all_samples_list)
+                print '\nshuffle success!',all_samples_list[0]
 
             while True:
                 mix_len=0
-                print 'batch_idxx:',batch_idxx
+                print 'batch_idxx:',batch_idxx,batch_idx
                 if batch_idxx>=batch_total:
                     print '\nreturn False'
                     yield False
@@ -109,9 +110,9 @@ def prepare_data(mode,train_or_test):
                 elif train_or_test=='eval_test':
                     aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
-                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[batch_idx])
-                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[batch_idx]))
-                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[batch_idx])
+                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[batch_idxx])
+                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[batch_idxx]))
+                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[batch_idxx])
                 assert len(aim_spk_k)==mix_k==len(aim_spk_db_k)==len(aim_spk_samplename_k)
 
                 multi_fea_dict_this_sample={}
