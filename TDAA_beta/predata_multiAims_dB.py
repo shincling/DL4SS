@@ -11,7 +11,6 @@ import resampy
 import librosa
 import shutil
 import subprocess
-import Image
 
 channel_first=config.channel_first
 np.random.seed(1)#设定种子
@@ -35,23 +34,6 @@ def split_forTrainDevTest(spk_list,train_or_test):
     else:
         raise ValueError('Wrong input of train_or_test.')
 
-
-def extract_frames(video, dst):
-    with open(os.devnull, "w") as ffmpeg_log:
-        video_id = video.split("/")[-1].split(".")[0]
-        if os.path.exists(dst):
-            print " cleanup: " + dst + "/"
-            shutil.rmtree(dst)
-        os.makedirs(dst)
-        video_to_frames_command = ["ffmpeg",
-                                   '-y',  # (optional) overwrite output file if it exists
-                                   '-i', video,  # input file
-                                   '-vf', "scale={}:{}".format(config.VideoSize[0],config.VideoSize[1]),  # input file
-                                   '-r', str(config.VIDEO_RATE),  # samplling rate of the Video
-                                   '-qscale:v', "2",  # quality for JPEG
-                                   '{0}/%03d.jpg'.format(dst)]
-        subprocess.call(video_to_frames_command, stdout=ffmpeg_log, stderr=ffmpeg_log)
-
 def prepare_datasize(gen):
     data=gen.next()
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
@@ -59,18 +41,6 @@ def prepare_datasize(gen):
     #暂时输出的是：语音长度、语音频率数量、视频截断之后的长度
     print 'datasize:',data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1],(data[4].shape[2],data[4].shape[3])
     return data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1],(data[4].shape[2],data[4].shape[3])
-
-def prepare_data_fake(train_or_test,num_labels):
-    while True:
-        out=[]
-        if channel_first:
-            for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, 3, config.VideoSize[0], config.VideoSize[1])]:
-                out.append(np.float32(np.random.random(i)))
-        else:
-            for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, config.VideoSize[0], config.VideoSize[1], 3)]:
-                out.append(np.float32(np.random.random(i)))
-        out.append(num_labels)
-        yield out
 
 def prepare_data(mode,train_or_test):
     '''
@@ -260,7 +230,6 @@ def prepare_data(mode,train_or_test):
 
         else:
             raise ValueError('No such dataset:{} for Speech.'.format(config.DATASET))
-
         pass
 
     #图像刺激
@@ -269,142 +238,7 @@ def prepare_data(mode,train_or_test):
 
     #视频刺激
     elif config.MODE==3:
-        if config.DATASET=='AVA':
-            pass
-        elif config.DATASET=='GRID':
-            #开始构建ＧＲＩＤ数据集
-            all_spk=os.listdir(data_path)
-            spk_samples_list={}
-            batch_idx=0
-            while True:
-                mix_len=0
-                mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
-                aim_spk_k=random.sample(all_spk,mix_k)#本次混合的候选人
-                multi_fea_dict_this_sample={}
-                multi_wav_dict_this_sample={}
-
-                for k,spk in enumerate(aim_spk_k):
-                    #若是没有出现在整体列表内就注册进去,且第一次的时候读取所有的samples的名字
-                    if spk not in spk_samples_list:
-                        spk_samples_list[spk]=[]
-                        for ss in os.listdir(data_path+'/'+spk+'/'+spk+'_speech'):
-                            spk_samples_list[spk].append(ss[:-4]) #去掉.wav后缀
-
-                        #这个函数让spk_sanmples_list[spk]按照设定好的方式选择是train的部分还是test
-                        spk_samples_list[spk]=split_forTrainDevTest(spk_samples_list[spk],train_or_test)
-
-                    #这个时候这个spk已经注册了，所以直接从里面选就好了
-                    sample_name=random.sample(spk_samples_list[spk],1)[0]
-                    spk_samples_list[spk].remove(sample_name)#取出来一次之后，就把这个人去掉（避免一个batch里某段语音的重复出现）
-                    spk_speech_path=data_path+'/'+spk+'/'+spk+'_speech/'+sample_name+'.wav'
-
-                    signal, rate = sf.read(spk_speech_path)  # signal 是采样值，rate 是采样频率
-                    if len(signal.shape) > 1:
-                        signal = signal[:, 0]
-                    if rate != config.FRAME_RATE:
-                        # 如果频率不是设定的频率则需要进行转换
-                        signal = resampy.resample(signal, rate, config.FRAME_RATE, filter='kaiser_best')
-                    if signal.shape[0] > config.MAX_LEN:  # 根据最大长度裁剪
-                        signal = signal[:config.MAX_LEN]
-                    # 更新混叠语音长度
-                    if signal.shape[0] > mix_len:
-                        mix_len = signal.shape[0]
-
-                    signal -= np.mean(signal)  # 语音信号预处理，先减去均值
-                    signal /= np.max(np.abs(signal))  # 波形幅值预处理，幅值归一化
-
-                    # 如果需要augment数据的话，先进行随机shift, 以后考虑固定shift
-                    if config.AUGMENT_DATA:
-                        random_shift = random.sample(range(len(signal)), 1)[0]
-                        signal = signal[random_shift:] + signal[:random_shift]
-
-                    if signal.shape[0] < config.MAX_LEN:  # 根据最大长度用 0 补齐,
-                        signal=np.append(signal,np.zeros(config.MAX_LEN - signal.shape[0]))
-
-                    if k==0:#第一个作为目标
-                        aim_spkname.append(aim_spk_k[0])
-                        # aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
-                        #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
-                        aim_spk_speech=signal
-                        aim_spkid.append(aim_spkname)
-                        wav_mix=signal
-                        aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
-                                                                                    config.FRAME_SHIFT)))
-                        aim_fea.append(aim_fea_clean)
-                        # 把第一个人顺便也注册进去混合dict里
-                        multi_fea_dict_this_sample[spk]=aim_fea_clean
-                        multi_wav_dict_this_sample[spk]=signal
-
-                    else:
-                        wav_mix = wav_mix + signal  # 混叠后的语音
-                        #　这个说话人的语音
-                        some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
-                                                                                       config.FRAME_SHIFT,)))
-                        multi_fea_dict_this_sample[spk]=some_fea_clean
-                        multi_wav_dict_this_sample[spk]=signal
-
-                multi_spk_fea_list.append(multi_fea_dict_this_sample) #把这个sample的dict传进去
-                multi_spk_wav_list.append(multi_wav_dict_this_sample) #把这个sample的dict传进去
-
-                # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
-                if config.IS_LOG_SPECTRAL:
-                    feature_mix = np.log(np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                        config.FRAME_SHIFT,
-                                                                                        window=config.WINDOWS)))
-                                         + np.spacing(1))
-                else:
-                    feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                     config.FRAME_SHIFT,)))
-
-                mix_speechs[batch_idx,:]=wav_mix
-                mix_feas.append(feature_mix)
-                mix_phase.append(np.transpose(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                     config.FRAME_SHIFT,)))
-                batch_idx+=1
-                print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
-                if batch_idx==config.BATCH_SIZE: #填满了一个batch
-                    mix_feas=np.array(mix_feas)
-                    mix_phase=np.array(mix_phase)
-                    aim_fea=np.array(aim_fea)
-                    # aim_spkid=np.array(aim_spkid)
-                    query=np.array(query)
-                    print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
-                    print 'aim spk list:', [one.keys() for one in multi_spk_fea_list]
-                    # print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
-                    # print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
-                    if mode=='global':
-                        all_spk=sorted(all_spk)
-                        dict_spk_to_idx={spk:idx for idx,spk in enumerate(all_spk)}
-                        dict_idx_to_spk={idx:spk for idx,spk in enumerate(all_spk)}
-                        yield all_spk,dict_spk_to_idx,dict_idx_to_spk,\
-                              aim_fea.shape[1],aim_fea.shape[2],32,len(all_spk)
-                              #上面的是：语音长度、语音频率、视频分割多少帧 TODO:后面把这个替换了query.shape[1]
-                    elif mode=='once':
-                        yield {'mix_wav':mix_speechs,
-                               'mix_feas':mix_feas,
-                               'mix_phase':mix_phase,
-                               'aim_fea':aim_fea,
-                               'aim_spkname':aim_spkname,
-                               'query':query,
-                               'num_all_spk':len(all_spk),
-                               'multi_spk_fea_list':multi_spk_fea_list,
-                               'multi_spk_wav_list':multi_spk_wav_list
-                               }
-
-                    batch_idx=0
-                    mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
-                    mix_feas=[]#应该是bs,n_frames,n_fre这么多
-                    mix_phase=[]
-                    aim_fea=[]#应该是bs,n_frames,n_fre这么多
-                    aim_spkid=[] #np.zeros(config.BATCH_SIZE)
-                    aim_spkname=[]
-                    query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
-                    multi_spk_fea_list=[]
-                    multi_spk_wav_list=[]
-
-        else:
-            raise ValueError('No such dataset:{} for Video'.format(config.DATASET))
-
+        raise ValueError('No such dataset:{} for Video'.format(config.DATASET))
     #概念刺激
     elif config.MODE==4:
         pass

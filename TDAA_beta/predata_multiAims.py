@@ -60,18 +60,6 @@ def prepare_datasize(gen):
     print 'datasize:',data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1],(data[4].shape[2],data[4].shape[3])
     return data[1].shape[1],data[1].shape[2],data[4].shape[1],data[-1],(data[4].shape[2],data[4].shape[3])
 
-def prepare_data_fake(train_or_test,num_labels):
-    while True:
-        out=[]
-        if channel_first:
-            for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, 3, config.VideoSize[0], config.VideoSize[1])]:
-                out.append(np.float32(np.random.random(i)))
-        else:
-            for i in [(config.BATCH_SIZE, 17040),(config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE, 134, 129), (config.BATCH_SIZE,), (config.BATCH_SIZE, 32, config.VideoSize[0], config.VideoSize[1], 3)]:
-                out.append(np.float32(np.random.random(i)))
-        out.append(num_labels)
-        yield out
-
 def prepare_data(mode,train_or_test):
     '''
     :param

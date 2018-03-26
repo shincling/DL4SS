@@ -8,16 +8,11 @@ import numpy as np
 import random
 import time
 import config
-from predata_multiAims import prepare_data,prepare_datasize,prepare_data_fake
-# import torchvision.models as models
-import myNet
+from predata_multiAims_dB import prepare_data,prepare_datasize,prepare_data_fake
+# import myNet
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
-# stout=sys.stdout
-# log_file=open(config.LOG_FILE_PRE,'w')
-# sys.stdout=log_file
-# logfile=config.LOG_FILE_PRE
 
 class MEMORY(object):
     def __init__(self,total_size,hidden_size,):
@@ -175,27 +170,6 @@ class ATTENTION(nn.Module):
             energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(config.BATCH_SIZE,mix_shape[1],mix_shape[2])
             mask=F.sigmoid(energy)
             return mask
-
-
-class VIDEO_QUERY(nn.Module):
-    def __init__(self,total_frames,video_size,spk_total_num):
-        super(VIDEO_QUERY,self).__init__()
-        self.total_frames=total_frames
-        self.video_size=video_size
-        self.spk_total_num=spk_total_num
-        self.images_net=myNet.inception_v3(pretrained=True)#注意这个输出[2]才是最后的隐层状态
-        for para in self.images_net.parameters():
-            para.requires_grad=False
-        self.size_hidden_image=2048 #抽取的图像的隐层向量的长度,Inception_v3对应的是2048
-        self.lstm_layer=nn.LSTM(
-            input_size=self.size_hidden_image,
-            hidden_size=config.HIDDEN_UNITS,
-            num_layers=config.NUM_LAYERS,
-            batch_first=True,
-            bidirectional=True
-        )
-        self.dense=nn.Linear(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE) #把输出的东西映射到embding_size的维度上
-        self.Linear=nn.Linear(config.EMBEDDING_SIZE,self.spk_total_num)
 
     def forward(self, x):
         assert x.size()[2]==3#判断是否不同通道在第三个维度

@@ -74,9 +74,9 @@ MODE = 1
 DATASET = 'GRID'
 DATASET = 'WSJ0'
 valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
-aim_path='./Dataset_Multi/'+str(MODE)+'/'+DATASET
+aim_path='../Torch_multi/Dataset_Multi/'+str(MODE)+'/'+DATASET
 # 日志记录，Record log into this file, such as dl4ss_output.log_20170303_110305
-LOG_FILE_PRE = aim_path+'/dl4ss_output.'+time.strftime('%Y-%m-%d %H:%M:%S')+'.log'
+LOG_FILE_PRE = './dl4ss_output.'+time.strftime('%Y-%m-%d %H:%M:%S')+'.log'
 # 训练文件列表
 TRAIN_LIST = aim_path+'/train_list'
 # 验证文件列表
