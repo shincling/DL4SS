@@ -369,7 +369,7 @@ def main():
     mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     print mix_speech_class
 
-    if 1 and config.Load_param:
+    if 0 and config.Load_param:
         # para_name='param_speech_WSJ0_multilabel_epoch42'
         # para_name='param_speech_WSJ0_multilabel_epoch249'
         # para_name='param_speech_123_WSJ0_multilabel_epoch75'
@@ -392,10 +392,11 @@ def main():
                                  # {'params':query_video_layer.Linear.parameters()},
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.0001)
+                                 ], lr=0.00001)
     # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
-    # loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
-    loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
+    loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
+    # loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
+    # loss_func = torch.nn.CrossEntropyLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.MultiLabelMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
 
@@ -427,7 +428,7 @@ def main():
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{} recall--{}'.format(all_num_batch,acc1,all_line_batch,acc2,recall_rate)
-            continue
+            # continue
             # if epoch_idx==0 and batch_idx<50:
             #     loss=loss_func(mix_speech,100*y_map)
             # else:
@@ -436,8 +437,9 @@ def main():
             loss=loss_func(mix_speech,y_map)
             loss_sum=loss_func(mix_speech.sum(1),y_map.sum(1))
             print 'loss this batch:',loss.data.cpu().numpy(),loss_sum.data.cpu().numpy()
-            continue
-            loss=loss+0.2*loss_sum
+            print 'time:',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            # continue
+            # loss=loss+0.2*loss_sum
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
