@@ -89,15 +89,15 @@ def prepare_data(mode,train_or_test):
             number_samples=len(all_samples_list)
             batch_total=number_samples/config.BATCH_SIZE
             print 'batch_total_num:',batch_total
-            batch_idxx=0
+            sample_idx=0
             if config.SHUFFLE_BATCH:
                 random.shuffle(all_samples_list)
                 print '\nshuffle success!',all_samples_list[0]
 
             while True:
                 mix_len=0
-                print 'batch_idxx:',batch_idxx,batch_idx
-                if batch_idxx>=batch_total:
+                print 'sample_idx:',sample_idx,batch_idx
+                if sample_idx>=batch_total*config.BATCH_SIZE:
                     print '\nreturn False'
                     yield False
                 # mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
@@ -110,9 +110,9 @@ def prepare_data(mode,train_or_test):
                 elif train_or_test=='eval_test':
                     aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
-                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[batch_idxx])
-                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[batch_idxx]))
-                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[batch_idxx])
+                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[sample_idx])
+                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[sample_idx]))
+                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[sample_idx])
                 assert len(aim_spk_k)==mix_k==len(aim_spk_db_k)==len(aim_spk_samplename_k)
 
                 multi_fea_dict_this_sample={}
@@ -155,6 +155,8 @@ def prepare_data(mode,train_or_test):
                         signal=np.append(signal,np.zeros(config.MAX_LEN - signal.shape[0]))
 
                     if k==0:#第一个作为目标
+                        ratio=10**(aim_spk_db_k[k]/20.0)
+                        signal=ratio*signal
                         aim_spkname.append(aim_spk_k[0])
                         # aim_spk=eval(re.findall('\d+',aim_spk_k[0])[0])-1 #选定第一个作为目标说话人
                         #TODO:这里有个问题是spk是从１开始的貌似，这个后面要统一一下　-->　已经解决，构建了spk和idx的双向索引
@@ -170,7 +172,8 @@ def prepare_data(mode,train_or_test):
 
                         #视频处理部分，为了得到query
                     else:
-
+                        ratio=10**(aim_spk_db_k[k]/20.0)
+                        signal=ratio*signal
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
                         some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
@@ -239,7 +242,7 @@ def prepare_data(mode,train_or_test):
                     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
                     multi_spk_fea_list=[]
                     multi_spk_wav_list=[]
-                    batch_idxx+=1
+                sample_idx+=1
 
         else:
             raise ValueError('No such dataset:{} for Speech.'.format(config.DATASET))
