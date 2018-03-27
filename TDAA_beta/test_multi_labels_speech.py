@@ -363,7 +363,7 @@ def main():
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
 
-    lr_data=0.00001
+    lr_data=0.0001
     optimizer = torch.optim.Adam([{'params':mix_speech_class.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
                                  # {'params':query_video_layer.dense.parameters()},
