@@ -402,7 +402,7 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        if epoch_idx&50==0:
+        if epoch_idx%50==0:
             for ee in optimizer.param_groups:
                 ee['lr']/=2
         acc_all,acc_line=0,0

@@ -11,6 +11,7 @@ import config_WSJ0_dB as config
 # from predata_multiAims_dB import prepare_data,prepare_datasize
 from predata_fromList import prepare_data,prepare_datasize
 # import myNet
+import lrs
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
@@ -362,13 +363,14 @@ def main():
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
 
+    lr_data=0.00001
     optimizer = torch.optim.Adam([{'params':mix_speech_class.parameters()},
                                  # {'params':query_video_layer.lstm_layer.parameters()},
                                  # {'params':query_video_layer.dense.parameters()},
                                  # {'params':query_video_layer.Linear.parameters()},
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.00001)
+                                 ], lr=lr_data)
     # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
     loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
@@ -376,11 +378,21 @@ def main():
     # loss_func = torch.nn.MultiLabelMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
 
+    lrs.send({
+        'title': 'TDAA classifier',
+        'batch_size':config.BATCH_SIZE,
+        'batch_total':batch_total,
+        'epoch_size':config.EPOCH_SIZE,
+        'loss func':loss_func.__str__(),
+        'initial lr':lr_data
+    })
+
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        if epoch_idx&50==0:
+        if epoch_idx%50==0:
             for ee in optimizer.param_groups:
                 ee['lr']/=2
+                lr_data=ee['lr']
         acc_all,acc_line=0,0
         if epoch_idx>0:
             print 'recal_rate this epoch {}: {}'.format(epoch_idx,recall_rate_list.mean())
@@ -407,6 +419,7 @@ def main():
                 print 'aim:{}-->{},predict:{}'.format(train_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
                 print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
             print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{} recall--{}'.format(all_num_batch,acc1,all_line_batch,acc2,recall_rate)
+            lrs.send('recall_rate',recall_rate)
             # continue
             # if epoch_idx==0 and batch_idx<50:
             #     loss=loss_func(mix_speech,100*y_map)
@@ -422,6 +435,9 @@ def main():
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
+            lrs.send('train_loss',loss.data[0])
+            lrs.send('sum_loss',loss_sum.data[0])
+            lrs.send('lr',lr_data)
 
         if config.Save_param and epoch_idx > 10 and epoch_idx % 5 == 0:
             try:
