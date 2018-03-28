@@ -85,7 +85,7 @@ def prepare_data(mode,train_or_test):
             if train_or_test=='test':
                 aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
 
-            all_samples_list=open(aim_list_path).readlines()[:300]
+            all_samples_list=open(aim_list_path).readlines()#[:300]
             number_samples=len(all_samples_list)
             batch_total=number_samples/config.BATCH_SIZE
             print 'batch_total_num:',batch_total

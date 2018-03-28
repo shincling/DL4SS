@@ -15,6 +15,7 @@ import lrs
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
+torch.cuda.set_device(0)
 
 class MEMORY(object):
     def __init__(self,total_size,hidden_size,):
@@ -424,7 +425,7 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        if epoch_idx%50==0:
+        if epoch_idx%10==0:
             for ee in optimizer.param_groups:
                 ee['lr']/=2
                 lr_data=ee['lr']
@@ -474,7 +475,7 @@ def main():
             lrs.send('sum_loss',loss_sum.data[0])
             lrs.send('lr',lr_data)
 
-        if config.Save_param and epoch_idx > 10 and epoch_idx % 5 == 0:
+        if config.Save_param and epoch_idx >= 10 and epoch_idx % 2 == 0:
             try:
                 torch.save(mix_speech_class.state_dict(), 'params/param_speech_123onezeroag5dropout_{}_multilabel_epoch{}'.format(config.DATASET,epoch_idx))
             except:
