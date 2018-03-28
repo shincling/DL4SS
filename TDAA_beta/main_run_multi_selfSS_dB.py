@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config_WSJ0_dB as config
-from predata_multiAims_dB import prepare_data,prepare_datasize
+from predata_fromList import prepare_data,prepare_datasize
 from test_multi_labels_speech import multi_label_vector
 import os
 import shutil
@@ -17,16 +17,13 @@ import soundfile as sf
 # import matlab
 # import matlab.engine
 # from separation import bss_eval_sources
-import bss_test
+# import bss_test
+import lrs
 
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
 random.seed(1)
 torch.cuda.set_device(0)
-# stout=sys.stdout
-# log_file=open(config.LOG_FILE_PRE,'w')
-# sys.stdout=log_file
-# logfile=config.LOG_FILE_PRE
 test_all_outputchannel=0
 
 def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data):
@@ -207,6 +204,7 @@ class ATTENTION(nn.Module):
             # print '\n\n',mix_hidden.requires_grad,query.requires_grad,'\n\n'
             dot=torch.baddbmm(Variable(torch.zeros(1,1).cuda()),mix_hidden,query)
             energy=dot.view(BATCH_SIZE,mix_shape[1],mix_shape[2])
+            # TODO: 这里可以想想是不是能换成Relu之类的
             mask=F.sigmoid(energy)
             return mask
 
@@ -222,6 +220,9 @@ class ATTENTION(nn.Module):
             energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(BATCH_SIZE,mix_shape[1],mix_shape[2])
             mask=F.sigmoid(energy)
             return mask
+        else:
+            print 'NO this attention methods.'
+            raise IndexError
 
 
 class VIDEO_QUERY(nn.Module):
@@ -355,19 +356,11 @@ def main():
     spk_global_gen=prepare_data(mode='global',train_or_test='train') #写一个假的数据生成，可以用来写模型先
     global_para=spk_global_gen.next()
     print global_para
-    spk_all_list,dict_spk2idx,dict_idx2spk,mix_speech_len,speech_fre,total_frames,spk_num_total=global_para
+    spk_all_list,dict_spk2idx,dict_idx2spk,mix_speech_len,speech_fre,total_frames,spk_num_total,batch_total=global_para
     del spk_global_gen
     num_labels=len(spk_all_list)
 
-    # data_generator=prepare_data('once','train')
-    # data_generator=prepare_data_fake(train_or_test='train',num_labels=num_labels) #写一个假的数据生成，可以用来写模型先
-
-    #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
-    #一个例子：(5, 17040) (5, 134, 129) (5, 134, 129) (5,) (5, 32, 400, 300, 3)
-    # datasize=prepare_datasize(data_generator)
-    # mix_speech_len,speech_fre,total_frames,spk_num_total,video_size=datasize
     print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
-    # data=data_generator.next()
 
     # This part is to build the 3D mix speech embedding maps.
     mix_hidden_layer_3d=MIX_SPEECH(speech_fre,mix_speech_len).cuda()
@@ -375,60 +368,17 @@ def main():
     mix_speech_multiEmbedding=SPEECH_EMBEDDING(num_labels,config.EMBEDDING_SIZE,spk_num_total+config.UNK_SPK_SUPP).cuda()
     print mix_hidden_layer_3d
     print mix_speech_classifier
-    # mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(data[1])).cuda())
-
-    # mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(data[1])).cuda())
-    # 技巧：alpha0的时候，就是选出top_k，top_k很大的时候，就是选出来大于alpha的
-    # top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=config.MAX_MIX)
-    # top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=config.ALPHA,top_k=3)
-    # print top_k_mask_mixspeech
-    # mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech) # bs*num_labels（最多混合人个数）×Embedding的大小
-    # mix_speech_multiEmbs=mix_speech_multiEmbedding(Variable(torch.from_numpy(top_k_mask_mixspeech),requires_grad=False).cuda()) # bs*num_labels（最多混合人个数）×Embedding的大小
-
-    # 需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
-    # 把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
-    # mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-    # mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
-    # mix_speech_hidden_5d=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-    # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-    # att_multi_speech=att_speech_layer(mix_speech_hidden_5d,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
-    # print att_multi_speech.size()
-    # att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,num_labels,mix_speech_len,speech_fre,-1)
-    # print att_multi_speech.size()
-
-
-    # This part is to conduct the video inputs.
-    # query_video_layer=VIDEO_QUERY(total_frames,config.VideoSize,spk_num_total).cuda()
-    query_video_layer=None
-    # print query_video_layer
-    # query_video_output,xx=query_video_layer(Variable(torch.from_numpy(data[4])))
-
-    # This part is to conduct the memory.
-    # hidden_size=(config.HIDDEN_UNITS)
-    hidden_size=(config.EMBEDDING_SIZE)
-    # x=torch.arange(0,24).view(2,3,4)
-    # y=torch.ones([2,4])
-    att_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+    print mix_speech_multiEmbedding
+    att_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-    # att=ATTENTION(4,'align')
-    # mask=att(x,y)#bs*max_len
-
-    # del data_generator
-    # del data
-
+    lr_data=0.0002
     optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
                                  {'params':mix_speech_classifier.parameters()},
-                                 # {'params':query_video_layer.lstm_layer.parameters()},
-                                 # {'params':query_video_layer.dense.parameters()},
-                                 # {'params':query_video_layer.Linear.parameters()},
                                  {'params':att_layer.parameters()},
                                  {'params':att_speech_layer.parameters()},
-                                 # ], lr=0.02,momentum=0.9)
-                                 ], lr=0.0002)
+                                 ], lr=lr_data)
     if 0 and config.Load_param:
-        # query_video_layer.load_state_dict(torch.load('param_video_layer_19'))
-        # mix_speech_classifier.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
@@ -437,11 +387,22 @@ def main():
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
     loss_query_class=torch.nn.CrossEntropyLoss()
 
+    lrs.send({
+        'title': 'TDAA classifier',
+        'batch_size':config.BATCH_SIZE,
+        'batch_total':batch_total,
+        'epoch_size':config.EPOCH_SIZE,
+        'loss func':loss_func.__str__(),
+        'initial lr':lr_data
+    })
+
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        if epoch_idx%50==0:
+        if epoch_idx%10==0:
             for ee in optimizer.param_groups:
                 ee['lr']/=2
+                lr_data=ee['lr']
+        lrs.send('lr',lr_data)
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
@@ -483,9 +444,9 @@ def main():
             mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
             mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
             # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-            att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
+            # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
             att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
-            # print att_multi_speech.size()
+            print att_multi_speech.size()
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
             # print att_multi_speech.size()
             multi_mask=att_multi_speech
@@ -522,9 +483,9 @@ def main():
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print 'loss:',loss_multi_speech.data.cpu().numpy()
 
-            if 1 or batch_idx==config.EPOCH_SIZE-1:
-                bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,train_data)
-                SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+            # if 1 or batch_idx==config.EPOCH_SIZE-1:
+            #     bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,train_data)
+            #     SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
 
 
             optimizer.zero_grad()   # clear gradients for next train

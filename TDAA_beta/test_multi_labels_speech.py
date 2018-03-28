@@ -381,7 +381,7 @@ def main():
     mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     print mix_speech_class
 
-    if 1 and config.Load_param:
+    if 0 and config.Load_param:
         # para_name='param_speech_WSJ0_multilabel_epoch42'
         # para_name='param_speech_WSJ0_multilabel_epoch249'
         # para_name='param_speech_123_WSJ0_multilabel_epoch75'
