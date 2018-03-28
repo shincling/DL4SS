@@ -85,7 +85,7 @@ def prepare_data(mode,train_or_test):
             if train_or_test=='test':
                 aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
 
-            all_samples_list=open(aim_list_path).readlines()#[:100]
+            all_samples_list=open(aim_list_path).readlines()[:300]
             number_samples=len(all_samples_list)
             batch_total=number_samples/config.BATCH_SIZE
             print 'batch_total_num:',batch_total
@@ -199,7 +199,7 @@ def prepare_data(mode,train_or_test):
                 mix_phase.append(np.transpose(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
                                                                                      config.FRAME_SHIFT,)))
                 batch_idx+=1
-                print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
+                # print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
                 if batch_idx==config.BATCH_SIZE: #填满了一个batch
                     mix_feas=np.array(mix_feas)
                     mix_phase=np.array(mix_phase)
@@ -229,7 +229,8 @@ def prepare_data(mode,train_or_test):
                                'query':query,
                                'num_all_spk':len(all_spk),
                                'multi_spk_fea_list':multi_spk_fea_list,
-                               'multi_spk_wav_list':multi_spk_wav_list
+                               'multi_spk_wav_list':multi_spk_wav_list,
+                               'batch_total':batch_total,
                                }
 
                     batch_idx=0

@@ -326,6 +326,40 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
     allsample_acc=float(right_line)/all_line
     return allelement_acc,allsample_acc,all_num,all_line,recall_rate
 
+def eval_model(mix_speech_class,dict_spk2idx,loss_func):
+    print '#' * 40
+    eval_data_gen=prepare_data('once','valid')
+    acc_all,acc_line=[],[]
+    recall_rate_list=np.array([])
+    while True:
+        eval_data=eval_data_gen.next()
+        if eval_data==False:
+            break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
+        mix_speech=mix_speech_class(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
+
+        y_spk,y_map=multi_label_vector(eval_data['multi_spk_fea_list'],dict_spk2idx)
+        y_map=Variable(torch.from_numpy(y_map)).cuda()
+        y_out_batch=mix_speech.data.cpu().numpy()
+        acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=-0.1,top_k_num=2)
+        acc_all.append(acc1)
+        acc_line.append(acc2)
+        recall_rate_list=np.append(recall_rate_list,recall_rate)
+
+        for i in range(config.BATCH_SIZE):
+            print 'aim:{}-->{},predict:{}'.format(eval_data['multi_spk_fea_list'][i].keys(),y_spk[i],mix_speech.data.cpu().numpy()[i][y_spk[i]])#除了输出目标的几个概率，也输出倒数四个的
+            print 'last 4 probility:{}'.format(mix_speech.data.cpu().numpy()[i][-5:])#除了输出目标的几个概率，也输出倒数四个的
+        print '\nAcc for this batch: all elements({}) acc--{},all sample({}) acc--{} recall--{}'.format(all_num_batch,acc1,all_line_batch,acc2,recall_rate)
+
+        loss=loss_func(mix_speech,y_map)
+        loss_sum=loss_func(mix_speech.sum(1),y_map.sum(1))
+        lrs.send('eval_loss',loss.data[0])
+        print 'loss this batch:',loss.data.cpu().numpy(),loss_sum.data.cpu().numpy()
+        print 'time:',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        lrs.send('eval_sum_loss',loss_sum.data[0])
+
+    print 'Acc for eval dataset: all elements acc--{},all sample acc--{}, recall_rate--{}'.format(np.mean(acc_all),np.mean(acc_line),np.mean(recall_rate_list))
+    lrs.send('eval_recall_rate_aver',np.mean(recall_rate_list))
+    print '#'*40
 
 def main():
     print('go to model')
@@ -346,7 +380,7 @@ def main():
     mix_speech_class=MIX_SPEECH_classifier(speech_fre,mix_speech_len,num_labels).cuda()
     print mix_speech_class
 
-    if 0 and config.Load_param:
+    if 1 and config.Load_param:
         # para_name='param_speech_WSJ0_multilabel_epoch42'
         # para_name='param_speech_WSJ0_multilabel_epoch249'
         # para_name='param_speech_123_WSJ0_multilabel_epoch75'
@@ -359,6 +393,7 @@ def main():
         para_name='param_speech_123onezeroag3_WSJ0_multilabel_epoch40'
         para_name='param_speech_123onezeroag4_WSJ0_multilabel_epoch20'
         para_name='param_speech_4lstm_multilabelloss30map_epoch440'
+        para_name='param_speech_123onezeroag5dropout_WSJ0_multilabel_epoch20'
         # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
@@ -371,8 +406,8 @@ def main():
                                  # {'params':att_layer.parameters()},
                                  # ], lr=0.02,momentum=0.9)
                                  ], lr=lr_data)
-    # loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
-    loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
+    loss_func = torch.nn.KLDivLoss()  # the target label is NOT an one-hotted
+    # loss_func = torch.nn.MultiLabelSoftMarginLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.CrossEntropyLoss()  # the target label is NOT an one-hotted
     # loss_func = torch.nn.MultiLabelMarginLoss()  # the target label is NOT an one-hotted
@@ -428,6 +463,7 @@ def main():
             # loss=loss_func(mix_speech,30*y_map)
             loss=loss_func(mix_speech,y_map)
             loss_sum=loss_func(mix_speech.sum(1),y_map.sum(1))
+            lrs.send('train_loss',loss.data[0])
             print 'loss this batch:',loss.data.cpu().numpy(),loss_sum.data.cpu().numpy()
             print 'time:',time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
             # continue
@@ -435,7 +471,6 @@ def main():
             optimizer.zero_grad()   # clear gradients for next train
             loss.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
-            lrs.send('train_loss',loss.data[0])
             lrs.send('sum_loss',loss_sum.data[0])
             lrs.send('lr',lr_data)
 
@@ -456,6 +491,8 @@ def main():
             #     print pa_gen['params'].next()
 
         print 'Acc for this epoch: all elements acc--{},all sample acc--{}'.format(acc_all/config.EPOCH_SIZE,acc_line/config.EPOCH_SIZE)
+        print '\nBegin to evaluate.'
+        eval_model(mix_speech_class,dict_spk2idx,loss_func)
 
 
 
