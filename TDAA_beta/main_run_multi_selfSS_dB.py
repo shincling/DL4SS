@@ -14,6 +14,7 @@ import os
 import shutil
 import librosa
 import soundfile as sf
+import bss_test
 # import matlab
 # import matlab.engine
 # from separation import bss_eval_sources
@@ -349,6 +350,90 @@ def top_k_mask(batch_pro,alpha,top_k):
             final[line_idx,i]=1
     return final
 
+def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
+             loss_multi_func,dict_spk2idx,dict_idx2spk,num_labels,mix_speech_len,speech_fre):
+    print '#' * 40
+    eval_data_gen=prepare_data('once','valid')
+    SDR_SUM=np.array([])
+    while True:
+        eval_data=eval_data_gen.next()
+        if eval_data==False:
+            break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
+        eval_data=eval_data_gen.next()
+        '''混合语音len,fre,Emb 3D表示层'''
+        mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
+        # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
+
+        '''Speech self Sepration　语音自分离部分'''
+        mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
+
+        y_spk_list= eval_data['multi_spk_fea_list']
+        y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
+        # 如果训练阶段使用Ground truth的分离结果作为判别
+        if config.Ground_truth:
+            mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
+            if test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
+                mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
+                y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
+
+        top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
+        top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
+        mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
+
+        assert len(top_k_mask_idx[0])==len(top_k_mask_idx[-1])
+        top_k_num=len(top_k_mask_idx[0])
+
+        #需要计算：mix_speech_hidden[bs,len,fre,emb]和mix_mulEmbedding[bs,num_labels,EMB]的Ａttention
+        #把　前者扩充为bs*num_labels,XXXXXXXXX的，后者也是，然后用ＡＴＴ函数计算它们再转回来就好了　
+        mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
+        mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
+        mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
+        # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+        # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
+        att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
+        print att_multi_speech.size()
+        att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
+        # print att_multi_speech.size()
+        multi_mask=att_multi_speech
+        # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
+        # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
+
+        x_input_map=Variable(torch.from_numpy(eval_data['mix_feas'])).cuda()
+        # print x_input_map.size()
+        x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
+        # predict_multi_map=multi_mask*x_input_map_multi
+        predict_multi_map=multi_mask*x_input_map_multi
+
+        y_multi_map=np.zeros([config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre],dtype=np.float32)
+        batch_spk_multi_dict=eval_data['multi_spk_fea_list']
+        for idx,sample in enumerate(batch_spk_multi_dict):
+            y_idx=sorted([dict_spk2idx[spk] for spk in sample.keys()])
+            assert y_idx==list(top_k_mask_idx[idx])
+            for jdx,oo in enumerate(y_idx):
+                y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
+        y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
+
+        loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
+
+        #各通道和为１的loss部分,应该可以更多的带来差异
+        y_sum_map=Variable(torch.ones(config.BATCH_SIZE,mix_speech_len,speech_fre)).cuda()
+        predict_sum_map=torch.sum(multi_mask,1)
+        loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
+        # loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
+        print 'loss 1 eval, losssum eval : ',loss_multi_speech.data.cpu().numpy(),loss_multi_sum_speech.data.cpu().numpy()
+        lrs.send('loss mask eval:',loss_multi_speech.data.cpu()[0])
+        lrs.send('loss sum eval:',loss_multi_sum_speech.data.cpu()[0])
+        loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
+        print 'evaling multi-abs norm this eval batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
+        print 'loss:',loss_multi_speech.data.cpu().numpy()
+        bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,eval_data)
+        SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+
+    SDR_aver=SDR_SUM.mean()
+    print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,)
+    lrs.send('SDR eval aver',SDR_aver)
+    print '#'*40
+
 def main():
     print('go to model')
     print '*' * 80
@@ -370,7 +455,7 @@ def main():
     print mix_speech_classifier
     print mix_speech_multiEmbedding
     att_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
-    att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
+    att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     lr_data=0.0002
     optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
@@ -406,14 +491,13 @@ def main():
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
-        # print_memory_state(memory.memory)
-        print 'SDR_SUM for epoch {}:{}'.format(epoch_idx - 1, SDR_SUM.mean())
-        for batch_idx in range(config.EPOCH_SIZE):
-            print '*' * 40,epoch_idx,batch_idx,'*'*40
-            train_data_gen=prepare_data('once','train')
-            # train_data_gen=prepare_data('once','test')
+        train_data_gen=prepare_data('once','train')
+        # train_data_gen=prepare_data('once','test')
+        while True:
             train_data=train_data_gen.next()
-
+            if train_data==False:
+                break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
+            train_data=train_data_gen.next()
             '''混合语音len,fre,Emb 3D表示层'''
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
             # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
@@ -458,9 +542,6 @@ def main():
             x_input_map_multi=x_input_map.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
             # predict_multi_map=multi_mask*x_input_map_multi
             predict_multi_map=multi_mask*x_input_map_multi
-            if 0 and batch_idx%100==0:
-                print multi_mask
-            # print predict_multi_map
 
             y_multi_map=np.zeros([config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre],dtype=np.float32)
             batch_spk_multi_dict=train_data['multi_spk_fea_list']
@@ -479,23 +560,25 @@ def main():
             loss_multi_sum_speech=loss_multi_func(predict_sum_map,y_sum_map)
             # loss_multi_speech=loss_multi_speech #todo:以后可以研究下这个和为１的效果对比一下，暂时直接MSE效果已经很不错了。
             print 'loss 1, losssum : ',loss_multi_speech.data.cpu().numpy(),loss_multi_sum_speech.data.cpu().numpy()
+            lrs.send('loss mask:',loss_multi_speech.data.cpu()[0])
+            lrs.send('loss sum:',loss_multi_sum_speech.data.cpu()[0])
             loss_multi_speech=loss_multi_speech+0.5*loss_multi_sum_speech
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print 'loss:',loss_multi_speech.data.cpu().numpy()
-
-            # if 1 or batch_idx==config.EPOCH_SIZE-1:
-            #     bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,train_data)
-            #     SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
 
 
             optimizer.zero_grad()   # clear gradients for next train
             loss_multi_speech.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
-            if 1 and epoch_idx>80 and epoch_idx%10==0 and batch_idx==config.EPOCH_SIZE-1:
-                torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
-                torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
-                torch.save(att_speech_layer.state_dict(),'params/param_mix_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
+        if 1:
+            eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
+                     loss_multi_func,dict_spk2idx,dict_idx2spk,num_labels,mix_speech_len,speech_fre)
+
+        if 1 and epoch_idx>=10 and epoch_idx%2==0:
+            torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
+            torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
+            torch.save(att_speech_layer.state_dict(),'params/param_mix_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
 
 
 
