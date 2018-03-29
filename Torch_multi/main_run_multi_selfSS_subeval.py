@@ -21,6 +21,7 @@ import soundfile as sf
 import bss_test
 
 
+torch.cuda.set_device(0)
 config.EPOCH_SIZE=300
 np.random.seed(1)#设定种子
 torch.manual_seed(1)
