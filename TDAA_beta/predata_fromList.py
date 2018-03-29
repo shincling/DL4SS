@@ -119,9 +119,9 @@ def prepare_data(mode,train_or_test):
                 multi_wav_dict_this_sample={}
                 multi_db_dict_this_sample={}
 
-                if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
-                    dB_rate=10**(config.dB/20.0*np.random.rand())#e**(0——0.5)
-                    print 'channel to change with dB:',dB_rate
+                # if 1 and config.dB and config.MIN_MIX==config.MAX_MIX==2:
+                #     dB_rate=10**(config.dB/20.0*np.random.rand())#e**(0——0.5)
+                #     print 'channel to change with dB:',dB_rate
 
                 for k,spk in enumerate(aim_spk_k):
                     #选择dB的通道～！
@@ -206,7 +206,7 @@ def prepare_data(mode,train_or_test):
                     aim_fea=np.array(aim_fea)
                     # aim_spkid=np.array(aim_spkid)
                     query=np.array(query)
-                    print '\nspk_list_from_this_gen:{}'.format(aim_spkname)
+                    print 'spk_list_from_this_gen:{}'.format(aim_spkname)
                     print 'aim spk list:', [one.keys() for one in multi_spk_fea_list]
                     # print '\nmix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkname.shape,query.shape,all_spk_num:'
                     # print mix_speechs.shape,mix_feas.shape,aim_fea.shape,len(aim_spkname),query.shape,len(all_spk)
