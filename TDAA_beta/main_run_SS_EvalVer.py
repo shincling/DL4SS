@@ -36,6 +36,13 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
             shutil.rmtree(dst)
         os.makedirs(dst)
 
+    for sample_idx,each_sample in enumerate(train_data['multi_spk_wav_list']):
+        for each_spk in each_sample.keys():
+            this_spk=each_spk
+            wav_genTrue=each_sample[this_spk]
+            min_len = 39936
+            sf.write('batch_output/{}_{}_realTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+
     # 对于每个sample
     sample_idx=0 #代表一个batch里的依次第几个
     for each_y,each_pre,each_trueVector,spk_name in zip(y_multi_map,predict_multi_map,y_map_gtruth,train_data['aim_spkname']):
@@ -356,10 +363,10 @@ def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding
     eval_data_gen=prepare_data('once','valid')
     SDR_SUM=np.array([])
     while True:
+        print '\n\n'
         eval_data=eval_data_gen.next()
         if eval_data==False:
             break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
-        eval_data=eval_data_gen.next()
         '''混合语音len,fre,Emb 3D表示层'''
         mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
         # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
@@ -391,7 +398,7 @@ def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding
         # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
         # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
         att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
-        print att_multi_speech.size()
+        # print att_multi_speech.size()
         att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
         # print att_multi_speech.size()
         multi_mask=att_multi_speech
@@ -428,6 +435,7 @@ def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding
         print 'loss:',loss_multi_speech.data.cpu().numpy()
         bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,eval_data)
         SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+        print 'SDR_aver_now:',SDR_SUM.mean()
 
     SDR_aver=SDR_SUM.mean()
     print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,)
@@ -493,11 +501,10 @@ def main():
         SDR_SUM=np.array([])
         train_data_gen=prepare_data('once','train')
         # train_data_gen=prepare_data('once','test')
-        while True:
+        while 0 and True:
             train_data=train_data_gen.next()
             if train_data==False:
                 break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
-            train_data=train_data_gen.next()
             '''混合语音len,fre,Emb 3D表示层'''
             mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
             # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
