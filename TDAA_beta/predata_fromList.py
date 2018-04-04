@@ -129,7 +129,7 @@ def prepare_data(mode,train_or_test):
                     if train_or_test!='test':
                         spk_speech_path=data_path+'/'+'train'+'/'+spk+'/'+sample_name+'.wav'
                     else:
-                        spk_speech_path=data_path+'/'+'test'+'/'+spk+'/'+sample_name+'.wav'
+                        spk_speech_path=data_path+'/'+'eval_test'+'/'+spk+'/'+sample_name+'.wav'
 
                     signal, rate = sf.read(spk_speech_path)  # signal 是采样值，rate 是采样频率
                     if len(signal.shape) > 1:
