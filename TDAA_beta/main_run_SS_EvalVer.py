@@ -438,7 +438,7 @@ def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding
         print 'SDR_aver_now:',SDR_SUM.mean()
 
     SDR_aver=SDR_SUM.mean()
-    print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,)
+    print 'SDR_SUM (len:{}) for epoch eval : '.format(SDR_SUM.shape)
     lrs.send('SDR eval aver',SDR_aver)
     print '#'*40
 
@@ -493,7 +493,8 @@ def main():
     for epoch_idx in range(config.MAX_EPOCH):
         if epoch_idx%10==0:
             for ee in optimizer.param_groups:
-                ee['lr']/=2
+                if ee['lr']>=1e-7:
+                    ee['lr']/=2
                 lr_data=ee['lr']
         lrs.send('lr',lr_data)
         if epoch_idx>0:
@@ -501,7 +502,7 @@ def main():
         SDR_SUM=np.array([])
         train_data_gen=prepare_data('once','train')
         # train_data_gen=prepare_data('once','test')
-        while 0 and True:
+        while 1 and True:
             train_data=train_data_gen.next()
             if train_data==False:
                 break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
@@ -583,9 +584,9 @@ def main():
                      loss_multi_func,dict_spk2idx,dict_idx2spk,num_labels,mix_speech_len,speech_fre)
 
         if 1 and epoch_idx>=10 and epoch_idx%2==0:
-            torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mix_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
-            torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mix_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
-            torch.save(att_speech_layer.state_dict(),'params/param_mix_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
+            torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mixSS_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
+            torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mixSS_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
+            torch.save(att_speech_layer.state_dict(),'params/param_mixSS_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
 
 
 
