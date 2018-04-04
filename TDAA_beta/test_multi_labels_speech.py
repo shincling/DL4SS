@@ -221,6 +221,7 @@ class MIX_SPEECH_classifier(nn.Module):
             batch_first=True,
             bidirectional=True
         )
+        self.max_pool1d=nn.MaxPool1d(self.mix_speech_len,0)
 
         # self.cnn=nn.Conv2d(1, 33, (5, 3), stride=(2, 1), padding=(4, 2))
         # self.cnn1=nn.Conv2d(33, 33, (5, 3), stride=(2, 1), padding=(4, 2))
@@ -235,8 +236,13 @@ class MIX_SPEECH_classifier(nn.Module):
         xx=x
         x,hidden=self.layer(x)
         x=x.contiguous() #bs*len*600
-        x=torch.mean(x,1)
-        # x=F.dropout(x,0.5)
+        pool_mean='max'
+        print 'Here we choose the pooling mode:',pool_mean
+        if pool_mean=='mean':
+            x=torch.mean(x,1)
+        elif pool_mean=='max':
+            x=self.max_pool1d(x.transpose(1,2)).transpose(1,2).view(config.BATCH_SIZE,-1)
+        x=F.dropout(x,0.5)
         out=F.sigmoid(self.Linear(x))
 
         # print xx.size()
