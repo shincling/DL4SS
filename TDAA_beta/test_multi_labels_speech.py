@@ -223,36 +223,41 @@ class MIX_SPEECH_classifier(nn.Module):
         )
         self.max_pool1d=nn.MaxPool1d(self.mix_speech_len,0)
 
-        # self.cnn=nn.Conv2d(1, 33, (5, 3), stride=(2, 1), padding=(4, 2))
-        # self.cnn1=nn.Conv2d(33, 33, (5, 3), stride=(2, 1), padding=(4, 2))
-        # self.cnn2=nn.Conv2d(33, 5, (5, 3), stride=(2, 1), padding=(4, 2))
-        # self.cnn3=nn.Conv2d(5, 5, (5, 3), stride=(2, 1), padding=(4, 2))
+        self.cnn=nn.Conv2d(1, 33, (5, 3), stride=(2, 1), padding=(4, 2))
+        self.cnn1=nn.Conv2d(33, 33, (5, 3), stride=(2, 1), padding=(4, 2))
+        self.cnn2=nn.Conv2d(33, 5, (5, 3), stride=(2, 1), padding=(4, 2))
+        self.cnn3=nn.Conv2d(5, 5, (5, 3), stride=(2, 1), padding=(4, 2))
 
         self.Linear=nn.Linear(2*2*config.HIDDEN_UNITS,num_labels)
 
-        # self.Linear_cnn=nn.Linear(16440,num_labels)
+        self.Linear_cnn=nn.Linear(16440,num_labels)
 
     def forward(self,x):
         xx=x
-        x,hidden=self.layer(x)
-        x=x.contiguous() #bs*len*600
-        pool_mean='max'
+        pool_mean='cnn'
         print 'Here we choose the pooling mode:',pool_mean
         if pool_mean=='mean':
+            x,hidden=self.layer(x)
+            x=x.contiguous() #bs*len*600
             x=torch.mean(x,1)
         elif pool_mean=='max':
+            x,hidden=self.layer(x)
+            x=x.contiguous() #bs*len*600
             x=self.max_pool1d(x.transpose(1,2)).transpose(1,2).view(config.BATCH_SIZE,-1)
+        elif pool_mean=='cnn':
+            y=self.cnn(xx.view(config.BATCH_SIZE,1,xx.size()[-2],xx.size()[-1]))
+            y=self.cnn1(y)
+            y=self.cnn2(y)
+            y=self.cnn3(y)
+            y=y.view(y.size()[0],-1)
+            print 'y shape:',y.size()
+            y=F.dropout(y,0.5)
+            out=F.sigmoid(self.Linear_cnn(y))
+            print out[:,:10]
+            return out
+
         x=F.dropout(x,0.5)
         out=F.sigmoid(self.Linear(x))
-
-        # print xx.size()
-        # y=self.cnn(xx.view(config.BATCH_SIZE,1,xx.size()[-2],xx.size()[-1]))
-        # y=self.cnn1(y)
-        # y=self.cnn2(y)
-        # y=self.cnn3(y)
-        # y=y.view(y.size()[0],-1)
-        # o=F.sigmoid(self.Linear_cnn(y))
-        #
         return out
 
 class MULTI_MODAL(object):
