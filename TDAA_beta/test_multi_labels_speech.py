@@ -234,7 +234,7 @@ class MIX_SPEECH_classifier(nn.Module):
 
     def forward(self,x):
         xx=x
-        pool_mean='cnn'
+        pool_mean='mean'
         print 'Here we choose the pooling mode:',pool_mean
         if pool_mean=='mean':
             x,hidden=self.layer(x)
@@ -339,6 +339,7 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
     return allelement_acc,allsample_acc,all_num,all_line,recall_rate
 
 def eval_model(mix_speech_class,dict_spk2idx,loss_func):
+    mix_speech_class.training=False
     print '#' * 40
     eval_data_gen=prepare_data('once','valid')
     acc_all,acc_line=[],[]
