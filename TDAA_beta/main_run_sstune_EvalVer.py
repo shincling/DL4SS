@@ -282,6 +282,7 @@ class MIX_SPEECH(nn.Module):
     def forward(self,x):
         x,hidden=self.layer(x)
         x=x.contiguous()
+        xx=x
         x=x.view(config.BATCH_SIZE*self.mix_speech_len,-1)
         # out=F.tanh(self.Linear(x))
         out=self.Linear(x)
@@ -289,7 +290,7 @@ class MIX_SPEECH(nn.Module):
         # out=F.relu(out)
         out=out.view(config.BATCH_SIZE,self.mix_speech_len,self.input_fre,-1)
         # print 'Mix speech output shape:',out.size()
-        return out
+        return out,xx
 
 class MIX_SPEECH_classifier(nn.Module):
     def __init__(self,input_fre,mix_speech_len,num_labels):
@@ -329,6 +330,22 @@ class SPEECH_EMBEDDING(nn.Module):
         out=all
         return out
 
+class ADDJUST(nn.Module):
+    # 这个模块是负责处理目标人的对应扰动的，进行一些偏移的调整
+    def __init__(self,hidden_units,embedding_size):
+        super(ADDJUST,self).__init__()
+        self.hidden_units=hidden_units
+        self.emb_size=embedding_size
+        self.layer=nn.Linear(hidden_units+embedding_size,embedding_size,bias=False).cuda()
+
+    def forward(self,input_hidden,prob_emb):
+        top_k_num=prob_emb.size()[1]
+        x=torch.mean(input_hidden,1).view(config.BATCH_SIZE,1,self.hidden_units).expand(config.BATCH_SIZE,top_k_num,self.hidden_units)
+        can=torch.cat([x,prob_emb],dim=2)
+        all=self.layer(can) # bs*num_labels（最多混合人个数）×Embedding的大小
+        out=all
+        return out
+
 class MULTI_MODAL(object):
     def __init__(self,datasize,gen):
         print 'Begin to build the maim model for Multi_Modal Cocktail Problem.'
@@ -357,8 +374,10 @@ def top_k_mask(batch_pro,alpha,top_k):
             final[line_idx,i]=1
     return final
 
-def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
+def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
              loss_multi_func,dict_spk2idx,dict_idx2spk,num_labels,mix_speech_len,speech_fre):
+    for i in [mix_speech_multiEmbedding,adjust_layer,mix_speech_classifier,mix_hidden_layer_3d,att_speech_layer]:
+        i.training=False
     print '#' * 40
     eval_data_gen=prepare_data('once','valid')
     SDR_SUM=np.array([])
@@ -368,7 +387,7 @@ def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding
         if eval_data==False:
             break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
         '''混合语音len,fre,Emb 3D表示层'''
-        mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
+        mix_speech_hidden,mix_tmp_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
         # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
 
         '''Speech self Sepration　语音自分离部分'''
@@ -386,6 +405,8 @@ def eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding
         top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
         top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
         mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
+        mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
+        mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
 
         assert len(top_k_mask_idx[0])==len(top_k_mask_idx[-1])
         top_k_num=len(top_k_mask_idx[0])
@@ -464,6 +485,10 @@ def main():
     print mix_speech_multiEmbedding
     att_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
+    adjust_layer=ADDJUST(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE)
+    print att_speech_layer
+    print att_speech_layer.mode
+    print adjust_layer
     lr_data=0.0002
     optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
@@ -502,12 +527,13 @@ def main():
         SDR_SUM=np.array([])
         train_data_gen=prepare_data('once','train')
         # train_data_gen=prepare_data('once','test')
-        while 1 and True:
+        while 0 and True:
             train_data=train_data_gen.next()
             if train_data==False:
                 break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
             '''混合语音len,fre,Emb 3D表示层'''
-            mix_speech_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
+            mix_speech_hidden,mix_tmp_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
+            # mix_tmp_hidden:[bs*T*hidden_units]
             # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
 
             '''Speech self Sepration　语音自分离部分'''
@@ -526,6 +552,8 @@ def main():
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
             top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
+            mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
+            mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
 
             assert len(top_k_mask_idx[0])==len(top_k_mask_idx[-1])
             top_k_num=len(top_k_mask_idx[0])
@@ -535,8 +563,6 @@ def main():
             mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
             mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
             mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-            # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'align').cuda()
-            # att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
             att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
             print att_multi_speech.size()
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
@@ -579,16 +605,19 @@ def main():
             loss_multi_speech.backward()         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
 
-        if 1:
-            eval_bss(mix_hidden_layer_3d,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
-                     loss_multi_func,dict_spk2idx,dict_idx2spk,num_labels,mix_speech_len,speech_fre)
-
-        if 1 and epoch_idx>=10 and epoch_idx%2==0:
-            torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mixSS_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
-            torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mixSS_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
-            torch.save(att_speech_layer.state_dict(),'params/param_mixSS_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
-
-
+        if 1 and epoch_idx >= 10 and epoch_idx % 5 == 0:
+            # torch.save(mix_speech_multiEmbedding.state_dict(),'params/param_mixalignag_{}_emblayer_{}'.format(config.DATASET,epoch_idx))
+            # torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mixalignag_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
+            # torch.save(att_speech_layer.state_dict(),'params/param_mixalignag_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
+            torch.save(mix_speech_multiEmbedding.state_dict(),
+                       'params/param_mix{}ag_{}_emblayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+            torch.save(mix_hidden_layer_3d.state_dict(),
+                       'params/param_mix{}ag_{}_hidden3d_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+            torch.save(att_speech_layer.state_dict(),
+                       'params/param_mix{}ag_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+        if 1 and epoch_idx % 3 == 0:
+            eval_bss(mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
+                     loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
 
 if __name__ == "__main__":
     main()
