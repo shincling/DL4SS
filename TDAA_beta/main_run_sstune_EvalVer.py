@@ -493,13 +493,14 @@ def main():
     optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
                                  {'params':mix_speech_classifier.parameters()},
-                                 {'params':att_layer.parameters()},
+                                 {'params':adjust_layer.parameters()},
                                  {'params':att_speech_layer.parameters()},
                                  ], lr=lr_data)
     if 0 and config.Load_param:
         mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
         mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
         att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
+        adjust_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -527,7 +528,7 @@ def main():
         SDR_SUM=np.array([])
         train_data_gen=prepare_data('once','train')
         # train_data_gen=prepare_data('once','test')
-        while 0 and True:
+        while 1 and True:
             train_data=train_data_gen.next()
             if train_data==False:
                 break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
@@ -614,6 +615,8 @@ def main():
             torch.save(mix_hidden_layer_3d.state_dict(),
                        'params/param_mix{}ag_{}_hidden3d_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
             torch.save(att_speech_layer.state_dict(),
+                       'params/param_mix{}ag_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+            torch.save(adjust_layer.state_dict(),
                        'params/param_mix{}ag_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
         if 1 and epoch_idx % 3 == 0:
             eval_bss(mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
