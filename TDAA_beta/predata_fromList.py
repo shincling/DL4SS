@@ -149,7 +149,7 @@ def prepare_data(mode,train_or_test):
                     # 如果需要augment数据的话，先进行随机shift, 以后考虑固定shift
                     if config.AUGMENT_DATA:
                         random_shift = random.sample(range(len(signal)), 1)[0]
-                        signal = signal[random_shift:] + signal[:random_shift]
+                        signal = np.append(signal[random_shift:], signal[:random_shift])
 
                     if signal.shape[0] < config.MAX_LEN:  # 根据最大长度用 0 补齐,
                         signal=np.append(signal,np.zeros(config.MAX_LEN - signal.shape[0]))
