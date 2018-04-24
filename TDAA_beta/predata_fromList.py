@@ -147,7 +147,7 @@ def prepare_data(mode,train_or_test):
                     signal /= np.max(np.abs(signal))  # 波形幅值预处理，幅值归一化
 
                     # 如果需要augment数据的话，先进行随机shift, 以后考虑固定shift
-                    if config.AUGMENT_DATA:
+                    if config.AUGMENT_DATA and train_or_test=='train':
                         random_shift = random.sample(range(len(signal)), 1)[0]
                         signal = np.append(signal[random_shift:], signal[:random_shift])
 
