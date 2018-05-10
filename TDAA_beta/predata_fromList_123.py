@@ -54,7 +54,7 @@ def prepare_data(mode,train_or_test,min=None,max=None):
     if min:
         config.MIN_MIX=min
     if max:
-        config.MIN_MIX=max
+        config.MAX_MIX=max
 
     mix_speechs=np.zeros((config.BATCH_SIZE,config.MAX_LEN))
     mix_feas=[]#应该是bs,n_frames,n_fre这么多
@@ -81,9 +81,13 @@ def prepare_data(mode,train_or_test,min=None,max=None):
             spk_samples_list={}
             batch_idx=0
             list_path='./create-speaker-mixtures/'
-            mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
             all_samples_list={}
-            for mix_k in range(config.MIN_MIX,config.MAX_MIX+1):
+            sample_idx={}
+            number_samples={}
+            batch_mix={}
+            mix_number_list=range(config.MIN_MIX,config.MAX_MIX+1)
+            number_samples_all=0
+            for mix_k in mix_number_list:
                 if train_or_test=='train':
                     aim_list_path=list_path+'mix_{}_spk_tr.txt'.format(mix_k)
                 if train_or_test=='valid':
@@ -91,23 +95,45 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                 if train_or_test=='test':
                     aim_list_path=list_path+'mix_{}_spk_tt.txt'.format(mix_k)
 
-                all_samples_list[mix_k]=open(aim_list_path).readlines()#[:300]
-                number_samples=len(all_samples_list[mix_k])
-                batch_total=number_samples/config.BATCH_SIZE
-                print 'batch_total_num:',batch_total
-                sample_idx=0
+                all_samples_list[mix_k]=open(aim_list_path).readlines()#[:31]
+                number_samples[mix_k]=len(all_samples_list[mix_k])
+                batch_mix[mix_k]=len(all_samples_list[mix_k])/config.BATCH_SIZE
+                number_samples_all+=len(all_samples_list[mix_k])
+
+                sample_idx[mix_k]=0#每个通道从0开始计数
+
                 if config.SHUFFLE_BATCH:
                     random.shuffle(all_samples_list[mix_k])
                     print '\nshuffle success!',all_samples_list[mix_k][0]
 
-            mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
-            while True:
+            batch_total=number_samples_all/config.BATCH_SIZE
+            print 'batch_total_num:',batch_total
+
+            mix_k=random.sample(mix_number_list,1)[0]
+            # while True:
+            for ___ in range(number_samples_all):
+                if ___==number_samples_all-1:
+                   yield False
                 mix_len=0
-                print 'sample_idx:',sample_idx,batch_idx
-                if sample_idx>=batch_total*config.BATCH_SIZE:
-                    print '\nreturn False'
-                    yield False
-                # mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
+                print mix_k,'mixed sample_idx[mix_k]:',sample_idx[mix_k],batch_idx
+                if sample_idx[mix_k]>=batch_mix[mix_k]*config.BATCH_SIZE:
+                    print mix_k,'mixed data is over~trun to the others number.'
+                    mix_number_list.remove(mix_k)
+                    mix_k=random.sample(mix_number_list,1)[0]
+                    batch_idx=0
+                    continue
+
+                all_over=1 #用来判断所有的是不是都结束了
+                for kkkkk in mix_number_list:
+                    if not sample_idx[kkkkk]>=batch_mix[mix_k]*config.BATCH_SIZE:
+                        print kkkkk,'mixed data is not over'
+                        all_over=0
+                        break
+                    if all_over:
+                        print 'all mix number is over~!'
+                        yield False
+                    
+                # mix_k=random.sample(mix_number_list,1)[0]
                 if train_or_test=='train':
                     aim_spk_k=random.sample(all_spk_train,mix_k)#本次混合的候选人
                 elif train_or_test=='eval':
@@ -117,9 +143,9 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                 elif train_or_test=='eval_test':
                     aim_spk_k=random.sample(all_spk_evaltest,mix_k)#本次混合的候选人
 
-                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[mix_k][sample_idx])
-                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[mix_k][sample_idx]))
-                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[mix_k][sample_idx])
+                aim_spk_k=re.findall('/([0-9][0-9].)/',all_samples_list[mix_k][sample_idx[mix_k]])
+                aim_spk_db_k=map(float,re.findall(' (.*?) ',all_samples_list[mix_k][sample_idx[mix_k]]))
+                aim_spk_samplename_k=re.findall('/(.{8})\.wav ',all_samples_list[mix_k][sample_idx[mix_k]])
                 assert len(aim_spk_k)==mix_k==len(aim_spk_db_k)==len(aim_spk_samplename_k)
 
                 multi_fea_dict_this_sample={}
@@ -209,7 +235,7 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                 # print 'batch_dix:{}/{},'.format(batch_idx,config.BATCH_SIZE),
                 if batch_idx==config.BATCH_SIZE: #填满了一个batch
                     #下一个batch的混合说话人个数， 先调整一下
-                    mix_k=random.randint(config.MIN_MIX,config.MAX_MIX)
+                    mix_k=random.sample(mix_number_list,1)[0]
                     mix_feas=np.array(mix_feas)
                     mix_phase=np.array(mix_phase)
                     aim_fea=np.array(aim_fea)
@@ -252,7 +278,7 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
                     multi_spk_fea_list=[]
                     multi_spk_wav_list=[]
-                sample_idx+=1
+                sample_idx[mix_k]+=1
 
         else:
             raise ValueError('No such dataset:{} for Speech.'.format(config.DATASET))
