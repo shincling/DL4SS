@@ -113,13 +113,21 @@ def prepare_data(mode,train_or_test,min=None,max=None):
             # while True:
             for ___ in range(number_samples_all):
                 if ___==number_samples_all-1:
-                   yield False
+                    print 'ends here.___'
+                    yield False
                 mix_len=0
                 print mix_k,'mixed sample_idx[mix_k]:',sample_idx[mix_k],batch_idx
                 if sample_idx[mix_k]>=batch_mix[mix_k]*config.BATCH_SIZE:
                     print mix_k,'mixed data is over~trun to the others number.'
                     mix_number_list.remove(mix_k)
-                    mix_k=random.sample(mix_number_list,1)[0]
+                    try:
+                        mix_k=random.sample(mix_number_list,1)[0]
+                    except ValueError:
+                        print 'seems there gets all over.'
+                        if len(mix_number_list)==0:
+                            print 'all mix number is over~!'
+                        yield False
+                    # mix_k=random.sample(mix_number_list,1)[0]
                     batch_idx=0
                     continue
 
