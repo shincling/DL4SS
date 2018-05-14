@@ -9,7 +9,7 @@ import random
 import time
 import config_WSJ0_dB as config
 # from predata_multiAims_dB import prepare_data,prepare_datasize
-from predata_fromList import prepare_data,prepare_datasize
+from predata_fromList_123 import prepare_data,prepare_datasize
 # import myNet
 import lrs
 
@@ -223,18 +223,25 @@ class MIX_SPEECH_classifier(nn.Module):
         )
         self.max_pool1d=nn.MaxPool1d(self.mix_speech_len,0)
 
-        self.cnn=nn.Conv2d(1, 33, (5, 3), stride=(2, 1), padding=(4, 2))
-        self.cnn1=nn.Conv2d(33, 33, (5, 3), stride=(2, 1), padding=(4, 2))
-        self.cnn2=nn.Conv2d(33, 5, (5, 3), stride=(2, 1), padding=(4, 2))
-        self.cnn3=nn.Conv2d(5, 5, (5, 3), stride=(2, 1), padding=(4, 2))
-
+        self.cnn=nn.Conv2d(1, 64, (3, 3), stride=(2, 2), )
+        self.cnn1=nn.Conv2d(64,64, (3, 3), stride=(1, 1), )
+        self.cnn2=nn.Conv2d(64,64, (3, 3), stride=(1, 1), )
+        self.cnn3=nn.Conv2d(64,64, (3, 3), stride=(1, 1), )
+        self.cnn4=nn.Conv2d(64,64, (3, 3), stride=(1, 1), )
+        self.cnn5=nn.Conv2d(64,128, (2, 2), stride=(2, 2), )
+        self.cnn6=nn.Conv2d(128,128, (2, 2), stride=(1, 1), )
+        self.cnn7=nn.Conv2d(128,128, (2, 2), stride=(1, 1), )
+        self.cnn8=nn.Conv2d(128,256, (2, 2), stride=(2, 2), )
+        self.cnn9=nn.Conv2d(256,256, (2, 2), stride=(1, 1), )
+        self.cnn10=nn.Conv2d(256,256, (2, 2), stride=(1, 1), )
         self.Linear=nn.Linear(2*2*config.HIDDEN_UNITS,num_labels)
 
-        self.Linear_cnn=nn.Linear(16440,num_labels)
+        #self.Linear_cnn=nn.Linear(16440,num_labels)
+        self.Linear_cnn=nn.Linear(95744,num_labels)
 
     def forward(self,x):
         xx=x
-        pool_mean='mean'
+        pool_mean='cnn'
         print 'Here we choose the pooling mode:',pool_mean
         if pool_mean=='mean':
             x,hidden=self.layer(x)
@@ -249,6 +256,13 @@ class MIX_SPEECH_classifier(nn.Module):
             y=self.cnn1(y)
             y=self.cnn2(y)
             y=self.cnn3(y)
+            y=self.cnn4(y)
+            y=self.cnn5(y)
+            y=self.cnn6(y)
+            y=self.cnn7(y)
+            y=self.cnn8(y)
+            y=self.cnn9(y)
+            y=self.cnn10(y)
             y=y.view(y.size()[0],-1)
             print 'y shape:',y.size()
             y=F.dropout(y,0.5)
@@ -341,7 +355,7 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
 def eval_model(mix_speech_class,dict_spk2idx,loss_func):
     mix_speech_class.training=False
     print '#' * 40
-    eval_data_gen=prepare_data('once','valid')
+    eval_data_gen=prepare_data('once','valid',2,2)
     acc_all,acc_line=[],[]
     recall_rate_list=np.array([])
     while True:
@@ -448,6 +462,7 @@ def main():
 
         train_data_gen=prepare_data('once','train')
         for batch_idx in range(config.EPOCH_SIZE):
+            continue
             print '*' * 40,epoch_idx,batch_idx,'*'*40
             train_data=train_data_gen.next()
             if train_data==False:
