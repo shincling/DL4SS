@@ -73,6 +73,10 @@ MODE = 1
 DATASET = 'GRID'
 DATASET = 'WSJ0'
 valid_mode_dataset() #判断MODE和数据集是否对应，不对就抛出异常
+#　组件　＃
+is_ComlexMask=True
+is_SelfTune=True
+
 # aim_path='./Dataset_Multi/'+str(MODE)+'/'+DATASET
 # aim_path='/media/sw/Elements/数据集/Grid/Dataset_Multi/'+str(MODE)+'/'+DATASET
 aim_path='../Torch_multi/Dataset_Multi/'+str(MODE)+'/'+DATASET
@@ -112,7 +116,7 @@ MAX_EPOCH = 600
 EPOCH_SIZE = 10
 EPOCH_SIZE = 300
 # batch size
-BATCH_SIZE = 3
+BATCH_SIZE = 2
 # 评估的batch size
 BATCH_SIZE_EVAL = 10
 # feature frame rate
