@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config_WSJ0_dB as config
-from predata_fromList import prepare_data,prepare_datasize
+from predata_fromList_cRM_123 import prepare_data,prepare_datasize
 from test_multi_labels_speech import multi_label_vector
 import os
 import shutil
@@ -205,29 +205,61 @@ class ATTENTION(nn.Module):
         # assert mix_hidden.size()[-1]==self.hidden_size
         #mix_hidden：bs,max_len,fre,hidden_size  query:bs,hidden_size
         if self.mode=='dot':
-            # mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
-            mix_shape=mix_hidden.size()
-            mix_hidden=mix_hidden.view(BATCH_SIZE,-1,self.hidden_size)
-            query=query.view(-1,self.hidden_size,1)
-            # print '\n\n',mix_hidden.requires_grad,query.requires_grad,'\n\n'
-            dot=torch.baddbmm(Variable(torch.zeros(1,1).cuda()),mix_hidden,query)
-            energy=dot.view(BATCH_SIZE,mix_shape[1],mix_shape[2])
-            # TODO: 这里可以想想是不是能换成Relu之类的
-            mask=F.sigmoid(energy)
-            return mask
+            if not config.is_ComlexMask:
+                # mix_hidden=mix_hidden.view(-1,1,self.hidden_size)
+                mix_shape=mix_hidden.size()
+                mix_hidden=mix_hidden.view(BATCH_SIZE,-1,self.hidden_size)
+                query=query.view(-1,self.hidden_size,1)
+                # print '\n\n',mix_hidden.requires_grad,query.requires_grad,'\n\n'
+                dot=torch.baddbmm(Variable(torch.zeros(1,1).cuda()),mix_hidden,query)
+                energy=dot.view(BATCH_SIZE,mix_shape[1],mix_shape[2])
+                # TODO: 这里可以想想是不是能换成Relu之类的
+                mask=F.sigmoid(energy)
+                return mask
+            else:
+                query_1=query[:,:,:config.EMBEDDING_SIZE].contiguous()
+                query_2=query[:,:,config.EMBEDDING_SIZE:].contiguous()
+                mix_shape=mix_hidden.size()
+                mix_hidden=mix_hidden.view(BATCH_SIZE,-1,self.hidden_size)
+                masks=[]
+                for idx,query in enumerate([query_1,query_2]):
+                    query=query.view(-1,self.hidden_size,1)
+                    dot=torch.baddbmm(Variable(torch.zeros(1,1).cuda()),mix_hidden,query)
+                    energy=dot.view(BATCH_SIZE,mix_shape[1],mix_shape[2],1)
+                    masks.append(F.tanh(energy))
+                mask=torch.cat((masks[0],masks[1]),3)
+                return mask
 
         elif self.mode=='align':
-            # mix_hidden=Variable(mix_hidden)
-            # query=Variable(query)
-            mix_shape=mix_hidden.size()
-            mix_hidden=mix_hidden.view(-1,self.hidden_size)
-            mix_hidden=self.Linear_1(mix_hidden).view(BATCH_SIZE,-1,self.align_hidden_size)
-            query=self.Linear_2(query).view(-1,1,self.align_hidden_size) #bs,1,hidden
-            sum=F.tanh(mix_hidden+query)
-            #TODO:从这里开始做起
-            energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(BATCH_SIZE,mix_shape[1],mix_shape[2])
-            mask=F.sigmoid(energy)
-            return mask
+            if not config.is_ComlexMask:
+                # mix_hidden=Variable(mix_hidden)
+                # query=Variable(query)
+                mix_shape=mix_hidden.size()
+                mix_hidden=mix_hidden.view(-1,self.hidden_size)
+                mix_hidden=self.Linear_1(mix_hidden).view(BATCH_SIZE,-1,self.align_hidden_size)
+                query=self.Linear_2(query).view(-1,1,self.align_hidden_size) #bs,1,hidden
+                sum=F.tanh(mix_hidden+query)
+                #TODO:从这里开始做起
+                energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(BATCH_SIZE,mix_shape[1],mix_shape[2])
+                mask=F.sigmoid(energy)
+                return mask
+            else:
+                query_1=query[:,:,:config.EMBEDDING_SIZE]
+                query_2=query[:,:,config.EMBEDDING_SIZE:]
+                mix_shape=mix_hidden.size()
+                mix_hidden=mix_hidden.view(-1,self.hidden_size)
+                mix_hidden=self.Linear_1(mix_hidden).view(BATCH_SIZE,-1,self.align_hidden_size)
+                masks=[]
+                for idx,query in enumerate([query_1,query_2]):
+                    query=self.Linear_2(query).view(-1,1,self.align_hidden_size) #bs,1,hidden
+                    sum=F.tanh(mix_hidden+query)
+                    #TODO:从这里开始做起
+                    energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(BATCH_SIZE,mix_shape[1],mix_shape[2])
+                    mask=F.tanh(energy)
+                mask=masks[0].reshape(BATCH_SIZE,mix_shape[1],mix_shape[2],1).expand(BATCH_SIZE,mix_shape[1],mix_shape[2],2)
+                mask[:,:,:,1]=masks[1]
+                return mask
+
         else:
             print 'NO this attention methods.'
             raise IndexError
@@ -322,7 +354,10 @@ class SPEECH_EMBEDDING(nn.Module):
         self.emb_size=embedding_size
         self.max_num_out=max_num_channel
         # self.layer=nn.Embedding(num_labels,embedding_size,padding_idx=-1)
-        self.layer=nn.Embedding(num_labels,embedding_size)
+        if not config.is_ComlexMask:
+            self.layer=nn.Embedding(num_labels,embedding_size)
+        else:#　如果是cRM,就得双倍说话人emb了，获得两个通道的attention大小
+            self.layer=nn.Embedding(num_labels,2*embedding_size)
 
     def forward(self, input,mask_idx):
         aim_matrix=torch.from_numpy(np.array(mask_idx))
@@ -483,7 +518,6 @@ def main():
     print mix_hidden_layer_3d
     print mix_speech_classifier
     print mix_speech_multiEmbedding
-    att_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     adjust_layer=ADDJUST(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE)
     print att_speech_layer
@@ -553,8 +587,8 @@ def main():
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
             top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
-            mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
-            mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
+            # mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
+            # mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
 
             assert len(top_k_mask_idx[0])==len(top_k_mask_idx[-1])
             top_k_num=len(top_k_mask_idx[0])
@@ -564,7 +598,11 @@ def main():
             mix_speech_hidden_5d=mix_speech_hidden.view(config.BATCH_SIZE,1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
             mix_speech_hidden_5d=mix_speech_hidden_5d.expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,config.EMBEDDING_SIZE).contiguous()
             mix_speech_hidden_5d_last=mix_speech_hidden_5d.view(-1,mix_speech_len,speech_fre,config.EMBEDDING_SIZE)
-            att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE))
+            if not config.is_ComlexMask:
+                mix_speech_multiEmbedding=mix_speech_multiEmbs.view(-1,config.EMBEDDING_SIZE)
+            else:
+                mix_speech_multiEmbedding=mix_speech_multiEmbs.view(-1,2*config.EMBEDDING_SIZE)
+            att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs)
             print att_multi_speech.size()
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
             # print att_multi_speech.size()
