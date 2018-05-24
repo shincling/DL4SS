@@ -587,8 +587,9 @@ def main():
             top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
             top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
             mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
-            # mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
-            # mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
+            if 0 and config.is_SelfTune:
+                mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
+                mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
 
             assert len(top_k_mask_idx[0])==len(top_k_mask_idx[-1])
             top_k_num=len(top_k_mask_idx[0])
@@ -604,8 +605,12 @@ def main():
                 mix_speech_multiEmbedding=mix_speech_multiEmbs.view(-1,2*config.EMBEDDING_SIZE)
             att_multi_speech=att_speech_layer(mix_speech_hidden_5d_last,mix_speech_multiEmbs)
             print att_multi_speech.size()
-            att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
-            # print att_multi_speech.size()
+
+            if not config.is_ComlexMask:
+                att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
+            else:
+                att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,2) # bs,num_labels,len,fre这个东西
+
             multi_mask=att_multi_speech
             # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
             # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
