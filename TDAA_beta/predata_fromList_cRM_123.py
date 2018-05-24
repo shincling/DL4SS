@@ -34,6 +34,12 @@ def split_forTrainDevTest(spk_list,train_or_test):
     else:
         raise ValueError('Wrong input of train_or_test.')
 
+def convert2(array):
+    shape=array.shape
+    o=array.real.reshape(shape[0],shape[1],1).repeat(2,2)
+    o[:,:,1]=array.imag
+    return o
+
 def prepare_datasize(gen):
     data=gen.next()
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
@@ -204,9 +210,13 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                         aim_spk_speech=signal
                         aim_spkid.append(aim_spkname)
                         wav_mix=signal
-                        aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
-                                                                                    config.FRAME_SHIFT)))
+                        if not config.is_ComlexMask: #如果不是有相位信息的话
+                            aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH, config.FRAME_SHIFT)))
+                        else: # cRM模式
+                            aim_fea_clean = np.transpose(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH, config.FRAME_SHIFT))
+                            aim_fea_clean=convert2(aim_fea_clean)
                         aim_fea.append(aim_fea_clean)
+
                         # 把第一个人顺便也注册进去混合dict里
                         multi_fea_dict_this_sample[spk]=aim_fea_clean
                         multi_wav_dict_this_sample[spk]=signal
@@ -217,8 +227,11 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                         signal=ratio*signal
                         wav_mix = wav_mix + signal  # 混叠后的语音
                         #　这个说话人的语音
-                        some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
-                                                                                       config.FRAME_SHIFT,)))
+                        if not config.is_ComlexMask: #如果不是有相位信息的话
+                            some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH, config.FRAME_SHIFT)))
+                        else: # cRM模式
+                            some_fea_clean = np.transpose(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH, config.FRAME_SHIFT))
+                            some_fea_clean=convert2(some_fea_clean)
                         multi_fea_dict_this_sample[spk]=some_fea_clean
                         multi_wav_dict_this_sample[spk]=signal
 
@@ -232,8 +245,8 @@ def prepare_data(mode,train_or_test,min=None,max=None):
                                                                                         window=config.WINDOWS)))
                                          + np.spacing(1))
                 else:
-                    feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(wav_mix, config.FRAME_LENGTH,
-                                                                                     config.FRAME_SHIFT,)))
+                    #　mix_feas都是频谱图，不用带相位信息就可以。（但是可能spk_vector要变双倍）
+                    feature_mix = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH, config.FRAME_SHIFT)))
 
                 mix_speechs[batch_idx,:]=wav_mix
                 mix_feas.append(feature_mix)
