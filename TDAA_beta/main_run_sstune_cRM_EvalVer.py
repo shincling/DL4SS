@@ -633,7 +633,7 @@ def main():
         train_data_gen=prepare_data('once','train')
         # train_data_gen=prepare_data('once','test')
         batch_idx=0
-        while 0 and True:
+        while 1 and True:
             print '*'*30,epoch_idx,batch_idx,'*'*30
             train_data=train_data_gen.next()
             if train_data==False:
