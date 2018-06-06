@@ -621,9 +621,9 @@ def main():
 
     print '''Begin to calculate.'''
     for epoch_idx in range(config.MAX_EPOCH):
-        if epoch_idx%10==0:
+        if 0 and epoch_idx%50==0:
             for ee in optimizer.param_groups:
-                if ee['lr']>=1e-7:
+                if ee['lr']>=5e-6:
                     ee['lr']/=2
                 lr_data=ee['lr']
             print 'now lr is :',lr_data
