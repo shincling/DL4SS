@@ -624,9 +624,8 @@ def main():
             loss_dis=loss_dis_true+loss_dis_false
             print 'loss for dis:(ture,false)',loss_dis_true.data.cpu().numpy(),loss_dis_false.data.cpu().numpy()
             optimizer.zero_grad()   # clear gradients for next train
-            loss_dis.backward()         # backpropagation, compute gradients
+            loss_dis.backward(retain_graph=True)         # backpropagation, compute gradients
             optimizer.step()        # apply gradients
-            continue
 
             #各通道和为１的loss部分,应该可以更多的带来差异
             y_sum_map=Variable(torch.ones(config.BATCH_SIZE,mix_speech_len,speech_fre)).cuda()
@@ -640,6 +639,8 @@ def main():
             print 'training multi-abs norm this batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
             print 'loss:',loss_multi_speech.data.cpu().numpy()
 
+            loss_dis_false=loss_dis_class(score_false,Variable(torch.ones(config.BATCH_SIZE*top_k_num,1)).cuda())
+            loss_multi_speech=loss_multi_speech+loss_dis_false
 
             optimizer.zero_grad()   # clear gradients for next train
             loss_multi_speech.backward()         # backpropagation, compute gradients
