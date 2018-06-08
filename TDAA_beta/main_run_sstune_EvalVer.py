@@ -315,6 +315,26 @@ class MIX_SPEECH_classifier(nn.Module):
         # out=self.Linear(x)
         return out
 
+class Discriminator(nn.Module):
+    def __init__(self):
+        super(Discriminator,self).__init__()
+        self.cnn=nn.Conv2d(1, 64, (3, 3), stride=(2, 2), )
+        self.cnn1=nn.Conv2d(64,64, (3, 3), stride=(2, 2), )
+        self.cnn2=nn.Conv2d(64,64, (3, 3), stride=(2, 2), )
+        self.final=nn.Linear(36480,1)
+
+    def forward(self,spec):
+        bs,topk,len,fre=spec.size()
+        spec=spec.view(bs*topk,1,len,fre)
+        spec=F.relu(self.cnn(spec))
+        spec=F.relu(self.cnn1(spec))
+        spec=F.relu(self.cnn2(spec))
+        spec=spec.view(bs*topk,-1)
+        print 'size spec:',spec.size()
+        score=F.sigmoid(self.final(spec))
+        print 'size spec:',score.size()
+        return score
+
 class SPEECH_EMBEDDING(nn.Module):
     def __init__(self,num_labels,embedding_size,max_num_channel):
         super(SPEECH_EMBEDDING,self).__init__()
@@ -486,15 +506,18 @@ def main():
     att_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     att_speech_layer=ATTENTION(config.EMBEDDING_SIZE,'dot').cuda()
     adjust_layer=ADDJUST(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE)
+    dis_layer=Discriminator().cuda()
     print att_speech_layer
     print att_speech_layer.mode
     print adjust_layer
+    print dis_layer
     lr_data=0.0002
     optimizer = torch.optim.Adam([{'params':mix_hidden_layer_3d.parameters()},
                                  {'params':mix_speech_multiEmbedding.parameters()},
                                  {'params':mix_speech_classifier.parameters()},
                                  {'params':adjust_layer.parameters()},
                                  {'params':att_speech_layer.parameters()},
+                                 {'params':dis_layer.parameters()},
                                  ], lr=lr_data)
     if 0 and config.Load_param:
         mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
@@ -504,7 +527,7 @@ def main():
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
-    loss_query_class=torch.nn.CrossEntropyLoss()
+    loss_dis_class=torch.nn.MSELoss()
 
     lrs.send({
         'title': 'TDAA classifier',
@@ -589,6 +612,22 @@ def main():
 
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
+            score_true=dis_layer(y_multi_map)
+            score_false=dis_layer(predict_multi_map)
+            acc_true=torch.sum(score_true>0.5).data.cpu().numpy()/float(score_true.size()[0])
+            acc_false=torch.sum(score_false<0.5).data.cpu().numpy()/float(score_true.size()[0])
+            acc_dis=(acc_false+acc_true)/2
+            print 'acc for dis:(ture,false,aver)',acc_true,acc_false,acc_dis
+
+            loss_dis_true=loss_dis_class(score_true,Variable(torch.ones(config.BATCH_SIZE*top_k_num,1)).cuda())
+            loss_dis_false=loss_dis_class(score_false,Variable(torch.zeros(config.BATCH_SIZE*top_k_num,1)).cuda())
+            loss_dis=loss_dis_true+loss_dis_false
+            print 'loss for dis:(ture,false)',loss_dis_true.data.cpu().numpy(),loss_dis_false.data.cpu().numpy()
+            optimizer.zero_grad()   # clear gradients for next train
+            loss_dis.backward()         # backpropagation, compute gradients
+            optimizer.step()        # apply gradients
+            continue
+
             #各通道和为１的loss部分,应该可以更多的带来差异
             y_sum_map=Variable(torch.ones(config.BATCH_SIZE,mix_speech_len,speech_fre)).cuda()
             predict_sum_map=torch.sum(multi_mask,1)
@@ -617,7 +656,9 @@ def main():
             torch.save(att_speech_layer.state_dict(),
                        'params/param_mix{}ag_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
             torch.save(adjust_layer.state_dict(),
-                       'params/param_mix{}ag_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+                       'params/param_mix{}ag_{}_adjlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+            torch.save(dis_layer.state_dict(),
+                       'params/param_mix{}ag_{}_dislayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
         if 1 and epoch_idx % 3 == 0:
             eval_bss(mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
                      loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
