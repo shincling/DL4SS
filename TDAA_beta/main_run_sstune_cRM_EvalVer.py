@@ -25,6 +25,8 @@ torch.manual_seed(1)
 random.seed(1)
 torch.cuda.set_device(0)
 test_all_outputchannel=0
+cRM_k=10
+cRM_C=0.1
 
 def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data):
     #评测和结果输出部分
@@ -264,7 +266,7 @@ class ATTENTION(nn.Module):
                     query=query.view(-1,self.hidden_size,1)
                     dot=torch.baddbmm(Variable(torch.zeros(1,1).cuda()),mix_hidden,query)
                     energy=dot.view(BATCH_SIZE,mix_shape[1],mix_shape[2],1)
-                    masks.append(F.tanh(energy))
+                    masks.append(cRM_k*F.tanh(energy))
                 mask=torch.cat((masks[0],masks[1]),3)
                 return mask
 
@@ -293,7 +295,7 @@ class ATTENTION(nn.Module):
                     sum=F.tanh(mix_hidden+query)
                     #TODO:从这里开始做起
                     energy=self.Linear_3(sum.view(-1,self.align_hidden_size)).view(BATCH_SIZE,mix_shape[1],mix_shape[2])
-                    mask=F.tanh(energy)
+                    mask=cRM_k*F.tanh(energy)
                 mask=masks[0].reshape(BATCH_SIZE,mix_shape[1],mix_shape[2],1).expand(BATCH_SIZE,mix_shape[1],mix_shape[2],2)
                 mask[:,:,:,1]=masks[1]
                 return mask
@@ -507,6 +509,7 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
         else:
             att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,2) # bs,num_labels,len,fre,2这个东西
+            att_multi_speech=-1/cRM_C*torch.log((cRM_k-att_multi_speech)/(cRM_k+att_multi_speech))
 
         multi_mask=att_multi_speech
         if not config.is_ComlexMask:
@@ -682,6 +685,7 @@ def main():
                 att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre) # bs,num_labels,len,fre这个东西
             else:
                 att_multi_speech=att_multi_speech.view(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre,2) # bs,num_labels,len,fre,2这个东西
+                att_multi_speech=-1/cRM_C*torch.log((cRM_k-att_multi_speech)/(cRM_k+att_multi_speech))
 
             multi_mask=att_multi_speech
             if not config.is_ComlexMask:
