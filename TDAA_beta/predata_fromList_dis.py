@@ -34,6 +34,36 @@ def split_forTrainDevTest(spk_list,train_or_test):
     else:
         raise ValueError('Wrong input of train_or_test.')
 
+def sample_from_spk(spk,data_path):
+    train_or_test='train'
+    spk_speech_path=data_path+'/'+'train'+'/'+spk+'/'
+    sample_name=random.sample(os.listdir(spk_speech_path),1)
+    spk_speech_path=spk_speech_path+sample_name[0]
+    signal, rate = sf.read(spk_speech_path)  # signal 是采样值，rate 是采样频率
+    if len(signal.shape) > 1:
+        signal = signal[:, 0]
+    if rate != config.FRAME_RATE:
+        # 如果频率不是设定的频率则需要进行转换
+        signal = resampy.resample(signal, rate, config.FRAME_RATE, filter='kaiser_best')
+    if signal.shape[0] > config.MAX_LEN:  # 根据最大长度裁剪
+        signal = signal[:config.MAX_LEN]
+        # 更新混叠语音长度
+
+    signal -= np.mean(signal)  # 语音信号预处理，先减去均值
+    signal /= np.max(np.abs(signal))  # 波形幅值预处理，幅值归一化
+
+    # 如果需要augment数据的话，先进行随机shift, 以后考虑固定shift
+    if 0 and config.AUGMENT_DATA and train_or_test=='train':
+        random_shift = random.sample(range(len(signal)), 1)[0]
+        signal = np.append(signal[random_shift:], signal[:random_shift])
+
+    if signal.shape[0] < config.MAX_LEN:  # 根据最大长度用 0 补齐,
+        signal=np.append(signal,np.zeros(config.MAX_LEN - signal.shape[0]))
+
+    aim_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
+                                                                       config.FRAME_SHIFT)))
+    return aim_fea_clean
+
 def prepare_datasize(gen):
     data=gen.next()
     #此处顺序是 mix_speechs.shape,mix_feas.shape,aim_fea.shape,aim_spkid.shape,query.shape
@@ -59,6 +89,7 @@ def prepare_data(mode,train_or_test):
     aim_spkname=[] #np.zeros(config.BATCH_SIZE)
     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
     multi_spk_fea_list=[] #应该是bs个dict，每个dict里是说话人name为key，clean_fea为value的字典
+    multi_spk_fea_list_sp=[] #应该是bs个dict，每个dict里是说话人name为key，clean_fea为value的字典
     multi_spk_wav_list=[] #应该是bs个dict，每个dict里是说话人name为key，clean_fea为value的字典
 
     #目标数据集的总data，底下应该存放分目录的文件夹，每个文件夹应该名字是sX
@@ -116,6 +147,7 @@ def prepare_data(mode,train_or_test):
                 assert len(aim_spk_k)==mix_k==len(aim_spk_db_k)==len(aim_spk_samplename_k)
 
                 multi_fea_dict_this_sample={}
+                multi_fea_dict_this_sample_sp={}
                 multi_wav_dict_this_sample={}
                 multi_db_dict_this_sample={}
 
@@ -168,6 +200,7 @@ def prepare_data(mode,train_or_test):
                         aim_fea.append(aim_fea_clean)
                         # 把第一个人顺便也注册进去混合dict里
                         multi_fea_dict_this_sample[spk]=aim_fea_clean
+                        multi_fea_dict_this_sample_sp[spk]=sample_from_spk(spk,data_path)
                         multi_wav_dict_this_sample[spk]=signal
 
                         #视频处理部分，为了得到query
@@ -179,9 +212,11 @@ def prepare_data(mode,train_or_test):
                         some_fea_clean = np.transpose(np.abs(librosa.core.spectrum.stft(signal, config.FRAME_LENGTH,
                                                                                        config.FRAME_SHIFT,)))
                         multi_fea_dict_this_sample[spk]=some_fea_clean
+                        multi_fea_dict_this_sample_sp[spk]=sample_from_spk(spk,data_path)
                         multi_wav_dict_this_sample[spk]=signal
 
                 multi_spk_fea_list.append(multi_fea_dict_this_sample) #把这个sample的dict传进去
+                multi_spk_fea_list_sp.append(multi_fea_dict_this_sample_sp) #把这个sample的dict传进去
                 multi_spk_wav_list.append(multi_wav_dict_this_sample) #把这个sample的dict传进去
 
                 # 这里采用log 以后可以考虑采用MFCC或GFCC特征做为输入
@@ -229,6 +264,7 @@ def prepare_data(mode,train_or_test):
                                'query':query,
                                'num_all_spk':len(all_spk),
                                'multi_spk_fea_list':multi_spk_fea_list,
+                               'multi_spk_fea_list_sp':multi_spk_fea_list_sp,
                                'multi_spk_wav_list':multi_spk_wav_list,
                                'batch_total':batch_total,
                                }
@@ -262,3 +298,6 @@ def prepare_data(mode,train_or_test):
 
     else:
         raise ValueError('No such Model:{}'.format(config.MODE))
+
+# tt=prepare_data('once','train')
+# tt.next()
