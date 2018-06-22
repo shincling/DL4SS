@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 import config_WSJ0_dB as config
-from predata_fromList import prepare_data,prepare_datasize
+from predata_fromList_dis import prepare_data,prepare_datasize
 from test_multi_labels_speech import multi_label_vector
 import os
 import shutil
