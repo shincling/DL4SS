@@ -278,6 +278,7 @@ def prepare_data(mode,train_or_test):
                     aim_spkname=[]
                     query=[]#应该是BATCH_SIZE，shape(query)的形式，用list再转换把
                     multi_spk_fea_list=[]
+                    multi_spk_fea_list_sp=[]
                     multi_spk_wav_list=[]
                 sample_idx+=1
 
