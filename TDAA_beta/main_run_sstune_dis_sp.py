@@ -610,9 +610,18 @@ def main():
                     y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
+            y_multi_map_sp=np.zeros([config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre],dtype=np.float32)
+            batch_spk_multi_dict=train_data['multi_spk_fea_list_sp']
+            for idx,sample in enumerate(batch_spk_multi_dict):
+                y_idx=sorted([dict_spk2idx[spk] for spk in sample.keys()])
+                assert y_idx==list(top_k_mask_idx[idx])
+                for jdx,oo in enumerate(y_idx):
+                    y_multi_map_sp[idx,jdx]=sample[dict_idx2spk[oo]]
+            y_multi_map_sp= Variable(torch.from_numpy(y_multi_map_sp)).cuda()
+
             loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
 
-            score_true=dis_layer(y_multi_map)
+            score_true=dis_layer(y_multi_map_sp)
             score_false=dis_layer(predict_multi_map)
             acc_true=torch.sum(score_true>0.5).data.cpu().numpy()/float(score_true.size()[0])
             acc_false=torch.sum(score_false<0.5).data.cpu().numpy()/float(score_true.size()[0])
@@ -651,15 +660,15 @@ def main():
             # torch.save(mix_hidden_layer_3d.state_dict(),'params/param_mixalignag_{}_hidden3d_{}'.format(config.DATASET,epoch_idx))
             # torch.save(att_speech_layer.state_dict(),'params/param_mixalignag_{}_attlayer_{}'.format(config.DATASET,epoch_idx))
             torch.save(mix_speech_multiEmbedding.state_dict(),
-                       'params/param_mix{}ag_{}_emblayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+                       'params/param_mix{}dissp_{}_emblayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
             torch.save(mix_hidden_layer_3d.state_dict(),
-                       'params/param_mix{}ag_{}_hidden3d_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+                       'params/param_mix{}dissp_{}_hidden3d_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
             torch.save(att_speech_layer.state_dict(),
-                       'params/param_mix{}ag_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+                       'params/param_mix{}dissp_{}_attlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
             torch.save(adjust_layer.state_dict(),
-                       'params/param_mix{}ag_{}_adjlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+                       'params/param_mix{}dissp_{}_adjlayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
             torch.save(dis_layer.state_dict(),
-                       'params/param_mix{}ag_{}_dislayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
+                       'params/param_mix{}dissp_{}_dislayer_{}'.format(att_speech_layer.mode, config.DATASET, epoch_idx))
         if 1 and epoch_idx % 3 == 0:
             eval_bss(mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
                      loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
