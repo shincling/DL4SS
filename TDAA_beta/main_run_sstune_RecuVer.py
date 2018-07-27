@@ -126,127 +126,6 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,eval_data):
         sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),eval_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
-def print_memory_state(memory):
-    print '\n memory states:'
-    for one in memory:
-        print '\nspk:{},video:{},age:{}'.format(one[0],one[1].cpu().numpy()[2*config.EMBEDDING_SIZE-3:2*config.EMBEDDING_SIZE+5],one[2])
-
-class MEMORY(object):
-    def __init__(self,total_size,hidden_size,):
-        '''memory的设计很关键
-        目前想的是一个list,每个条目包括:id(str),voide_vector,image_vector,video_vector(这三个合成一个向量）,
-        age_vector（长度为3,整型，呼应voice\image\ video的样本个数）'''
-        self.total_size=total_size
-        self.hidden_size=hidden_size
-        self.init_memory()
-
-    def init_memory(self):
-        # self.memory=[['Unknown_id',np.zeros(3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        self.memory=[['Unknown_id',torch.zeros(3*self.hidden_size).cuda(),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        # self.memory=[['Unknown_id',torch.range(1,3*self.hidden_size),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-        # self.memory=[['Unknown_id',Variable(torch.zeros(3*self.hidden_size),requires_grad=True),[0,0,0]] for i in range(self.total_size)] #最外层是一个list
-
-    def register_spklist(self,spk_list):
-        num=len(spk_list)
-        sample_list=random.sample(range(len(self.memory)),num)
-        for idx,sdx in enumerate(sample_list):
-            assert self.memory[sdx][0]=='Unknown_id'
-            self.memory[sdx][0]=spk_list[idx]
-
-    def get_all_spkid(self):
-        l=[]
-        for spk in self.memory:
-            l.append(spk[0])
-        return set(l)
-
-    def get_speech_vector(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][1][:self.hidden_size]
-    def get_image_vector(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][1][self.hidden_size:2*self.hidden_size]
-    def get_video_vector(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]
-    def get_speech_num(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][2][0]
-    def get_image_num(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][2][1]
-    def get_video_num(self,spk_id,idx=None):
-        if not idx:
-            idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        return self.memory[idx][2][2]
-
-    def find_spk(self,spk_id):
-        for idx,spk in enumerate(self.memory):
-            if spk_id==spk[0]:
-                break
-        else:
-            raise KeyError('The spk_id:{} is not in the memory list.'.format(spk_id))
-        return idx
-
-    #注意这几个new_vector可能会是Variable变量，所以得想好这个怎么运算
-    def updata_vector(self,old,new,old_num):
-        '''这里定义如何更新旧的记忆里的memory和新的memory,
-        必须是new(Variable)+常量的形式,返回一个可以继续计算梯度的东西
-        '''
-        # return (old+new)/2 #最简单的，靠近最新的样本
-        if isinstance(old,Variable):
-            pass
-        else:
-            old=Variable(old,requires_grad=False)
-        tmp=(old+new) #最简单的，靠近最新的样本
-        final=tmp/tmp.data.norm(2)
-        return final
-
-    def add_speech(self,spk_id,new_vector,return_final=True):
-        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector()
-        old_num=self.get_speech_num()
-        final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][:self.hidden_size]=final.data #这里是FloatTensor的加法
-        self.memory[idx][2][0]=self.memory[idx][2][0]+1
-
-        if return_final:
-            return final
-
-    def add_image(self,spk_id,new_vector,return_final=True):
-        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector()
-        old_num=self.get_speech_num()
-        final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][self.hidden_size:2*self.hidden_size]=final.data #这里是FloatTensor的加法
-        self.memory[idx][2][1]=self.memory[idx][2][1]+1
-        if return_final:
-            return final
-
-    def add_video(self,spk_id,new_vector,return_final=True):
-        idx=self.find_spk(spk_id)#先找到spk_id对应的说话人的索引
-        old=self.get_speech_vector(spk_id)
-        old_num=self.get_speech_num(spk_id)
-        final=self.updata_vector(old,new_vector,old_num)
-        self.memory[idx][1][2*self.hidden_size:3*self.hidden_size]=final.data #这里是FloatTensor的加法
-        self.memory[idx][2][2]=self.memory[idx][2][2]+1
-        if return_final:
-            return final
-
-    def find_idx_fromQueryVector(self,form,query_vecotr):
-        #todo:这个重点考虑一下如何设计
-        assert form in ['speech','image','video']
-        if form=='speech':
-            for idx,spk in self.memory:
-                if spk[2][0]:
-                    similarity=None
-                else:
-                    continue
-
 
 class ATTENTION(nn.Module):
     def __init__(self,hidden_size,mode='dot'):
@@ -292,39 +171,6 @@ class ATTENTION(nn.Module):
         else:
             print 'NO this attention methods.'
             raise IndexError
-
-
-class VIDEO_QUERY(nn.Module):
-    def __init__(self,total_frames,video_size,spk_total_num):
-        super(VIDEO_QUERY,self).__init__()
-        self.total_frames=total_frames
-        self.video_size=video_size
-        self.spk_total_num=spk_total_num
-        self.images_net=myNet.inception_v3(preevaled=True)#注意这个输出[2]才是最后的隐层状态
-        for para in self.images_net.parameters():
-            para.requires_grad=False
-        self.size_hidden_image=2048 #抽取的图像的隐层向量的长度,Inception_v3对应的是2048
-        self.lstm_layer=nn.LSTM(
-            input_size=self.size_hidden_image,
-            hidden_size=config.HIDDEN_UNITS,
-            num_layers=config.NUM_LAYERS,
-            batch_first=True,
-            bidirectional=True
-        )
-        self.dense=nn.Linear(2*config.HIDDEN_UNITS,config.EMBEDDING_SIZE) #把输出的东西映射到embding_size的维度上
-        self.Linear=nn.Linear(config.EMBEDDING_SIZE,self.spk_total_num)
-
-    def forward(self, x):
-        assert x.size()[2]==3#判断是否不同通道在第三个维度
-        x=x.contiguous()
-        x=x.view(-1,3,self.video_size[0],self.video_size[1])
-        x_hidden_images=self.images_net(x)[2]
-        x_hidden_images=x_hidden_images.view(-1,self.total_frames,self.size_hidden_image)
-        x_lstm,hidden_lstm=self.lstm_layer(x_hidden_images)
-        last_hidden=self.dense(x_lstm[:,-1])
-        # out=F.softmax(self.Linear(last_hidden)) #出处类别的概率,为什么很多都不加softmax的。。。
-        out=self.Linear(last_hidden) #出处类别的概率,为什么很多都不加softmax的。。。
-        return out,last_hidden
 
 class MIX_SPEECH(nn.Module):
     def __init__(self,input_fre,mix_speech_len):
@@ -456,42 +302,26 @@ def top_k_mask(batch_pro,alpha,top_k):
             final[line_idx,i]=1
     return final
 
-def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
+def eval_bss(candidates,eval_data,mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_multiEmbedding,att_speech_layer,
              loss_multi_func,dict_spk2idx,dict_idx2spk,num_labels,mix_speech_len,speech_fre):
     for i in [mix_speech_multiEmbedding,adjust_layer,mix_speech_classifier,mix_hidden_layer_3d,att_speech_layer]:
         i.evaling=False
-    print '#' * 40
-    eval_data_gen=prepare_data('once','valid')
-    SDR_SUM=np.array([])
+    fea_now=eval_data['mix_feas']
     while True:
-        print '\n\n'
-        eval_data=eval_data_gen.next()
-        if eval_data==False:
-            break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
         '''混合语音len,fre,Emb 3D表示层'''
         mix_speech_hidden,mix_tmp_hidden=mix_hidden_layer_3d(Variable(torch.from_numpy(fea_now)).cuda())
         # 暂时关掉video部分,因为s2 s3 s4 的视频数据不全暂时
 
         '''Speech self Sepration　语音自分离部分'''
-        mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(fea_now)).cuda())
-
-        if not test_mode:
-            y_spk_list= eval_data['multi_spk_fea_list']
-            y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
-            # 如果训练阶段使用Ground truth的分离结果作为判别
-            if not test_mode and config.Ground_truth:
-                mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
-                if test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
-                    mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
-                    y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
+        # mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(fea_now)).cuda())
 
         if test_mode:
             num_labels=2
-            num_labels=top_N_SDR
             alpha0=-0.5
         else:
             alpha0=0.5
-        top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=alpha0,top_k=num_labels) #torch.Float型的
+        # top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=alpha0,top_k=num_labels) #torch.Float型的
+        top_k_mask_mixspeech=candidates #torch.Float型的
         top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
         print 'Predict spk list:',print_spk_name(dict_idx2spk,top_k_mask_idx)
         mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
@@ -515,10 +345,6 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
         multi_mask=att_multi_speech
         # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
         # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
-        if top_N_SDR==1 and num_labels==1:
-            tmp_mask=1-multi_mask
-            multi_mask=torch.cat([multi_mask,tmp_mask],1)
-            top_k_num=2
 
         x_input_map=Variable(torch.from_numpy(fea_now)).cuda()
         # print x_input_map.size()
@@ -555,13 +381,9 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
         print 'evaling multi-abs norm this eval batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
         print 'loss:',loss_multi_speech.data.cpu().numpy()
         bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,eval_data)
-        SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
-        print 'SDR_aver_now:',SDR_SUM.mean()
+        return bss_test.cal('batch_output/',2)
 
-    SDR_aver=SDR_SUM.mean()
-    print 'SDR_SUM (len:{}) for epoch eval : '.format(SDR_SUM.shape)
-    lrs.send('SDR eval aver',SDR_aver)
-    print '#'*40
+
 
 def main():
     print('go to model')
@@ -677,9 +499,18 @@ def main():
                 for iiii in range(config.BATCH_SIZE):
                     y_multi_map[iiii]=np.array(batch_spk_multi_dict[iiii].values())
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
-            predict_multi_map=Variable(torch.from_numpy(predict_multi_map)).cuda()
 
-            bss_eval(predict_multi_map,y_multi_map,2,dict_idx2spk,eval_data)
+            if 1: #这个是只利用推断出来的spk，回去做分离
+                top_mask=torch.zeros(num_labels)
+                for jjj in candidates:
+                    top_mask[int(jjj[0])]=1
+                top_mask=top_mask.view(1,num_labels)
+                eval_bss(top_mask,eval_data,mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
+                         loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
+            else:
+                predict_multi_map=Variable(torch.from_numpy(predict_multi_map)).cuda()
+                bss_eval(predict_multi_map,y_multi_map,2,dict_idx2spk,eval_data)
+
             SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
             if SDR_SUM[-1]<3:
                 pass
@@ -687,11 +518,6 @@ def main():
 
         print 'SDR_SUM (len:{}) for epoch eval : '.format(SDR_SUM.shape)
         print '#'*40
-
-
-        if 1 and epoch_idx % 3 == 0:
-            eval_bss(candidates,mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
-                     loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
 
 if __name__ == "__main__":
     main()
