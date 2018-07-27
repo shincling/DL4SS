@@ -27,7 +27,7 @@ random.seed(1)
 torch.cuda.set_device(0)
 test_all_outputchannel=0
 test_mode=1
-top_N_SDR=1
+top_N_SDR=2
 print 'We use the mode of SDR with top:',top_N_SDR
 
 def print_spk_name(dict,batch):
@@ -57,7 +57,11 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
         _mix_spec=train_data['mix_phase'][sample_idx]
         phase_mix = np.angle(_mix_spec)
         size=each_y.size()[0]
-        for idx,one_cha in enumerate(range(size)):
+        if size==len(each_trueVector):
+            gen=enumerate(each_trueVector)
+        else:
+            gen=enumerate(range(size))
+        for idx,one_cha in gen:
             if 1 or one_cha: #　如果此刻这个候选人通道是开启的
                 this_spk=dict_idx2spk[one_cha]
                 y_true_map=each_y[idx].data.cpu().numpy()
@@ -412,7 +416,7 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
     for i in [mix_speech_multiEmbedding,adjust_layer,mix_speech_classifier,mix_hidden_layer_3d,att_speech_layer]:
         i.training=False
     print '#' * 40
-    eval_data_gen=prepare_data('once','test')
+    eval_data_gen=prepare_data('once','valid')
     SDR_SUM=np.array([])
     while True:
         print '\n\n'
@@ -568,6 +572,11 @@ def main():
         att_speech_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdis_3434.13436424_attlayer_395',map_location={'cuda:2':'cuda:0'}))
         adjust_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdis_3434.13436424_adjlayer_395',map_location={'cuda:2':'cuda:0'}))
 
+        #加入dis-sp的结果
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdissp_33401_hidden3d_185',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdissp_33401_emblayer_185',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdissp_33401_attlayer_185',map_location={'cuda:1':'cuda:0'}))
+        adjust_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdissp_33401_adjlayer_185',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
