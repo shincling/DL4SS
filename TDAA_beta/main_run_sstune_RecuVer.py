@@ -459,7 +459,7 @@ def main():
     })
 
     print '''Begin to calculate.'''
-    for epoch_idx in range(config.MAX_EPOCH):
+    for epoch_idx in range(1):
         if epoch_idx%10==0:
             for ee in optimizer.param_groups:
                 if ee['lr']>=1e-7:
@@ -505,13 +505,13 @@ def main():
                 for jjj in candidates:
                     top_mask[int(jjj[0])]=1
                 top_mask=top_mask.view(1,num_labels)
-                eval_bss(top_mask,eval_data,mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
+                ccc=eval_bss(top_mask,eval_data,mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
                          loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
+                SDR_SUM = np.append(SDR_SUM, ccc)
             else:
                 predict_multi_map=Variable(torch.from_numpy(predict_multi_map)).cuda()
                 bss_eval(predict_multi_map,y_multi_map,2,dict_idx2spk,eval_data)
-
-            SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+                SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
             if SDR_SUM[-1]<3:
                 pass
             print 'SDR_aver_now:',SDR_SUM.mean()
