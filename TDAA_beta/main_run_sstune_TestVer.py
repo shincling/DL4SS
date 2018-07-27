@@ -27,6 +27,8 @@ random.seed(1)
 torch.cuda.set_device(0)
 test_all_outputchannel=0
 test_mode=1
+top_N_SDR=1
+print 'We use the mode of SDR with top:',top_N_SDR
 
 def print_spk_name(dict,batch):
     for i in batch:
@@ -54,8 +56,9 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
     for each_y,each_pre,each_trueVector,spk_name in zip(y_multi_map,predict_multi_map,y_map_gtruth,train_data['aim_spkname']):
         _mix_spec=train_data['mix_phase'][sample_idx]
         phase_mix = np.angle(_mix_spec)
-        for idx,one_cha in enumerate(each_trueVector):
-            if one_cha: #　如果此刻这个候选人通道是开启的
+        size=each_y.size()[0]
+        for idx,one_cha in enumerate(range(size)):
+            if 1 or one_cha: #　如果此刻这个候选人通道是开启的
                 this_spk=dict_idx2spk[one_cha]
                 y_true_map=each_y[idx].data.cpu().numpy()
                 y_pre_map=each_pre[idx].data.cpu().numpy()
@@ -435,6 +438,7 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
 
         if test_mode:
             num_labels=2
+            num_labels=top_N_SDR
             alpha0=-0.5
         else:
             alpha0=0.5
@@ -462,6 +466,10 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
         multi_mask=att_multi_speech
         # top_k_mask_mixspeech_multi=top_k_mask_mixspeech.view(config.BATCH_SIZE,top_k_num,1,1).expand(config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre)
         # multi_mask=multi_mask*Variable(top_k_mask_mixspeech_multi).cuda()
+        if top_N_SDR==1 and num_labels==1:
+            tmp_mask=1-multi_mask
+            multi_mask=torch.cat([multi_mask,tmp_mask],1)
+            top_k_num=2
 
         x_input_map=Variable(torch.from_numpy(eval_data['mix_feas'])).cuda()
         # print x_input_map.size()
@@ -548,10 +556,18 @@ def main():
             if 'cnn' in key:
                 class_dict.pop(key)
         mix_speech_classifier.load_state_dict(class_dict)
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_hidden3d_125',map_location={'cuda:1':'cuda:0'}))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_emblayer_125',map_location={'cuda:1':'cuda:0'}))
-        att_speech_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_attlayer_125',map_location={'cuda:1':'cuda:0'}))
-        adjust_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_adjlayer_125',map_location={'cuda:1':'cuda:0'}))
+        # 底下四个是TDAA-basic最强版本
+        # mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_hidden3d_125',map_location={'cuda:1':'cuda:0'}))
+        # mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_emblayer_125',map_location={'cuda:1':'cuda:0'}))
+        # att_speech_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_attlayer_125',map_location={'cuda:1':'cuda:0'}))
+        # adjust_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_adjlayer_125',map_location={'cuda:1':'cuda:0'}))
+
+        #加入dis-ss的结果
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdis_3434.13436424_hidden3d_395',map_location={'cuda:2':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdis_3434.13436424_emblayer_395',map_location={'cuda:2':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdis_3434.13436424_attlayer_395',map_location={'cuda:2':'cuda:0'}))
+        adjust_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdotdis_3434.13436424_adjlayer_395',map_location={'cuda:2':'cuda:0'}))
+
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
