@@ -26,6 +26,12 @@ torch.manual_seed(1)
 random.seed(1)
 torch.cuda.set_device(0)
 test_all_outputchannel=0
+test_mode=1 # 这个用来控制需要自己预测的spk还是可以用ground truth的，这个是0的时候，eval函数里 test应该是无法使用的。
+
+def print_spk_name(dict,batch):
+    for i in batch:
+        print [dict[j] for j in i],
+    print '\n'
 
 def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data):
     #评测和结果输出部分
@@ -57,7 +63,10 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,train_data)
                 _genture_spec = y_true_map * np.exp(1j * phase_mix)
                 wav_pre=librosa.core.spectrum.istft(np.transpose(_pred_spec), config.FRAME_SHIFT)
                 wav_genTrue=librosa.core.spectrum.istft(np.transpose(_genture_spec), config.FRAME_SHIFT,)
-                min_len = np.min((len(train_data['multi_spk_wav_list'][sample_idx][this_spk]), len(wav_pre)))
+                if test_mode:
+                    min_len = len(wav_pre)
+                else:
+                    min_len = np.min((len(train_data['multi_spk_wav_list'][sample_idx][this_spk]), len(wav_pre)))
                 if test_all_outputchannel:
                     min_len =  len(wav_pre)
                 sf.write('batch_output/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
@@ -270,10 +279,11 @@ class MIX_SPEECH(nn.Module):
         super(MIX_SPEECH,self).__init__()
         self.input_fre=input_fre
         self.mix_speech_len=mix_speech_len
-        self.layer=nn.GRU(
+        self.layer=nn.LSTM(
             input_size=input_fre,
             hidden_size=config.HIDDEN_UNITS,
-            num_layers=config.NUM_LAYERS,
+            # num_layers=config.NUM_LAYERS,
+            num_layers=4,
             batch_first=True,
             bidirectional=True
         )
@@ -300,7 +310,7 @@ class MIX_SPEECH_classifier(nn.Module):
         self.layer=nn.LSTM(
             input_size=input_fre,
             hidden_size=2*config.HIDDEN_UNITS,
-            num_layers=config.NUM_LAYERS,
+            num_layers=3,
             batch_first=True,
             bidirectional=True
         )
@@ -413,17 +423,24 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
         '''Speech self Sepration　语音自分离部分'''
         mix_speech_output=mix_speech_classifier(Variable(torch.from_numpy(eval_data['mix_feas'])).cuda())
 
-        y_spk_list= eval_data['multi_spk_fea_list']
-        y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
-        # 如果训练阶段使用Ground truth的分离结果作为判别
-        if config.Ground_truth:
-            mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
-            if test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
-                mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
-                y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
+        if not test_mode:
+            y_spk_list= eval_data['multi_spk_fea_list']
+            y_spk_gtruth,y_map_gtruth=multi_label_vector(y_spk_list,dict_spk2idx)
+            # 如果训练阶段使用Ground truth的分离结果作为判别
+            if not test_mode and config.Ground_truth:
+                mix_speech_output=Variable(torch.from_numpy(y_map_gtruth)).cuda()
+                if test_all_outputchannel: #把输入的mask改成全１，可以用来测试输出所有的channel
+                    mix_speech_output=Variable(torch.ones(config.BATCH_SIZE,num_labels,))
+                    y_map_gtruth=np.ones([config.BATCH_SIZE,num_labels])
 
-        top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=0.5,top_k=num_labels) #torch.Float型的
+        if test_mode:
+            num_labels=2
+            alpha0=-0.5
+        else:
+            alpha0=0.5
+        top_k_mask_mixspeech=top_k_mask(mix_speech_output,alpha=alpha0,top_k=num_labels) #torch.Float型的
         top_k_mask_idx=[np.where(line==1)[0] for line in top_k_mask_mixspeech.numpy()]
+        print 'Predict spk list:',print_spk_name(dict_idx2spk,top_k_mask_idx)
         mix_speech_multiEmbs=mix_speech_multiEmbedding(top_k_mask_mixspeech,top_k_mask_idx) # bs*num_labels（最多混合人个数）×Embedding的大小
         mix_adjust=adjust_layer(mix_tmp_hidden,mix_speech_multiEmbs)
         mix_speech_multiEmbs=mix_adjust+mix_speech_multiEmbs
@@ -452,13 +469,19 @@ def eval_bss(mix_hidden_layer_3d,adjust_layer,mix_speech_classifier,mix_speech_m
         # predict_multi_map=multi_mask*x_input_map_multi
         predict_multi_map=multi_mask*x_input_map_multi
 
+
         y_multi_map=np.zeros([config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre],dtype=np.float32)
         batch_spk_multi_dict=eval_data['multi_spk_fea_list']
-        for idx,sample in enumerate(batch_spk_multi_dict):
-            y_idx=sorted([dict_spk2idx[spk] for spk in sample.keys()])
-            assert y_idx==list(top_k_mask_idx[idx])
-            for jdx,oo in enumerate(y_idx):
-                y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
+        if test_mode:
+            for iiii in range(config.BATCH_SIZE):
+                y_multi_map[iiii]=np.array(batch_spk_multi_dict[iiii].values())
+        else:
+            for idx,sample in enumerate(batch_spk_multi_dict):
+                y_idx=sorted([dict_spk2idx[spk] for spk in sample.keys()])
+                if not test_mode:
+                    assert y_idx==list(top_k_mask_idx[idx])
+                for jdx,oo in enumerate(y_idx):
+                    y_multi_map[idx,jdx]=sample[dict_idx2spk[oo]]
         y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
         loss_multi_speech=loss_multi_func(predict_multi_map,y_multi_map)
@@ -519,11 +542,16 @@ def main():
                                  {'params':att_speech_layer.parameters()},
                                  {'params':dis_layer.parameters()},
                                  ], lr=lr_data)
-    if 0 and config.Load_param:
-        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mix101_WSJ0_hidden3d_180'))
-        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mix101_WSJ0_emblayer_180'))
-        att_speech_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
-        adjust_layer.load_state_dict(torch.load('params/param_mix101_WSJ0_attlayer_180'))
+    if 1 and config.Load_param:
+        class_dict=torch.load('params/param_speech_2mix3lstm_best',map_location={'cuda:3':'cuda:0'})
+        for key in class_dict.keys():
+            if 'cnn' in key:
+                class_dict.pop(key)
+        mix_speech_classifier.load_state_dict(class_dict)
+        mix_hidden_layer_3d.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_hidden3d_125',map_location={'cuda:1':'cuda:0'}))
+        mix_speech_multiEmbedding.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_emblayer_125',map_location={'cuda:1':'cuda:0'}))
+        att_speech_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_attlayer_125',map_location={'cuda:1':'cuda:0'}))
+        adjust_layer.load_state_dict(torch.load('params/param_mixdotadjust4lstmdot_WSJ0_adjlayer_125',map_location={'cuda:1':'cuda:0'}))
     loss_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     loss_multi_func = torch.nn.MSELoss()  # the target label is NOT an one-hotted
     # loss_multi_func = torch.nn.L1Loss()  # the target label is NOT an one-hotted
@@ -551,7 +579,7 @@ def main():
         SDR_SUM=np.array([])
         train_data_gen=prepare_data('once','train')
         # train_data_gen=prepare_data('once','test')
-        while 1 and True:
+        while 0 and True:
             train_data=train_data_gen.next()
             if train_data==False:
                 break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
