@@ -86,7 +86,7 @@ def print_spk_name(dict,batch):
 def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,eval_data):
     #评测和结果输出部分
     if config.Out_Sep_Result:
-        dst='batch_output'
+        dst='batch_output2'
         if os.path.exists(dst):
             print " \ncleanup: " + dst + "/"
             shutil.rmtree(dst)
@@ -97,7 +97,7 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,eval_data):
             this_spk=each_spk
             wav_genTrue=each_sample[this_spk]
             min_len = 39936
-            sf.write('batch_output/{}_{}_realTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+            sf.write('batch_output2/{}_{}_realTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
 
     # 对于每个sample
     sample_idx=0 #代表一个batch里的依次第几个
@@ -121,9 +121,9 @@ def bss_eval(predict_multi_map,y_multi_map,y_map_gtruth,dict_idx2spk,eval_data):
                     min_len = np.min((len(eval_data['multi_spk_wav_list'][sample_idx][this_spk]), len(wav_pre)))
                 if test_all_outputchannel:
                     min_len =  len(wav_pre)
-                sf.write('batch_output/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
-                sf.write('batch_output/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
-        sf.write('batch_output/{}_True_mix.wav'.format(sample_idx),eval_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
+                sf.write('batch_output2/{}_{}_pre.wav'.format(sample_idx,this_spk),wav_pre[:min_len],config.FRAME_RATE,)
+                sf.write('batch_output2/{}_{}_genTrue.wav'.format(sample_idx,this_spk),wav_genTrue[:min_len],config.FRAME_RATE,)
+        sf.write('batch_output2/{}_True_mix.wav'.format(sample_idx),eval_data['mix_wav'][sample_idx][:min_len],config.FRAME_RATE,)
         sample_idx+=1
 
 
@@ -381,7 +381,7 @@ def eval_bss(candidates,eval_data,mix_hidden_layer_3d,adjust_layer,mix_speech_cl
         print 'evaling multi-abs norm this eval batch:',torch.abs(y_multi_map-predict_multi_map).norm().data.cpu().numpy()
         print 'loss:',loss_multi_speech.data.cpu().numpy()
         bss_eval(predict_multi_map,y_multi_map,top_k_mask_idx,dict_idx2spk,eval_data)
-        return bss_test.cal('batch_output/',2)
+        return bss_test.cal('batch_output2/',2)
 
 
 
@@ -500,7 +500,8 @@ def main():
                     y_multi_map[iiii]=np.array(batch_spk_multi_dict[iiii].values())
             y_multi_map= Variable(torch.from_numpy(y_multi_map)).cuda()
 
-            if 1: #这个是只利用推断出来的spk，回去做分离
+            if 0: #这个是只利用推断出来的spk，回去做分离
+                print 'Recu only for spks.'
                 top_mask=torch.zeros(num_labels)
                 for jjj in candidates:
                     top_mask[int(jjj[0])]=1
@@ -509,9 +510,10 @@ def main():
                          loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
                 SDR_SUM = np.append(SDR_SUM, ccc)
             else:
+                print 'Recu for spks and maps.'
                 predict_multi_map=Variable(torch.from_numpy(predict_multi_map)).cuda()
                 bss_eval(predict_multi_map,y_multi_map,2,dict_idx2spk,eval_data)
-                SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output/', 2))
+                SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output2/', 2))
             if SDR_SUM[-1]<3:
                 pass
             print 'SDR_aver_now:',SDR_SUM.mean()
