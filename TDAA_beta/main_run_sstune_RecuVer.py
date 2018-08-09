@@ -22,8 +22,8 @@ import bss_test
 import lrs
 
 np.random.seed(1)#设定种子
-torch.manual_seed(1)
-random.seed(1)
+torch.manual_seed(12)
+random.seed(11)
 torch.cuda.set_device(0)
 test_all_outputchannel=0
 assert config.BATCH_SIZE==1
@@ -469,8 +469,8 @@ def main():
         if epoch_idx>0:
             print 'SDR_SUM (len:{}) for epoch {} : '.format(SDR_SUM.shape,epoch_idx-1,SDR_SUM.mean())
         SDR_SUM=np.array([])
-        # eval_data_gen=prepare_data('once','valid')
-        eval_data_gen=prepare_data('once','test')
+        eval_data_gen=prepare_data('once','valid')
+        # eval_data_gen=prepare_data('once','test')
         while 1 and True:
             print '\n'
             eval_data=eval_data_gen.next()
@@ -478,12 +478,12 @@ def main():
                 break #如果这个epoch的生成器没有数据了，直接进入下一个epoch
 
             now_data=eval_data['mix_feas']
-            top_k_num=2
+            top_k_num=3
             # while True:
 
             candidates=[]
             predict_multi_map=np.zeros([config.BATCH_SIZE,top_k_num,mix_speech_len,speech_fre],dtype=np.float32)
-            for ____ in range(2):
+            for ____ in range(3):
                 print 'Recu step:',____
                 out_this_step,spk_this_step=model_step_output(now_data,mix_speech_classifier,mix_hidden_layer_3d,\
                           mix_speech_multiEmbedding,adjust_layer,att_speech_layer,\
@@ -506,16 +506,23 @@ def main():
                 for jjj in candidates:
                     top_mask[int(jjj[0])]=1
                 top_mask=top_mask.view(1,num_labels)
-                ccc=eval_bss(top_mask,eval_data,mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
+                try:
+                    ccc=eval_bss(top_mask,eval_data,mix_hidden_layer_3d,adjust_layer, mix_speech_classifier, mix_speech_multiEmbedding, att_speech_layer,
                          loss_multi_func, dict_spk2idx, dict_idx2spk, num_labels, mix_speech_len, speech_fre)
-                SDR_SUM = np.append(SDR_SUM, ccc)
+                    SDR_SUM = np.append(SDR_SUM, ccc)
+                except:
+                    pass
             else:
                 print 'Recu for spks and maps.'
                 predict_multi_map=Variable(torch.from_numpy(predict_multi_map)).cuda()
-                bss_eval(predict_multi_map,y_multi_map,2,dict_idx2spk,eval_data)
-                SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output2/', 2))
-            if SDR_SUM[-1]<3:
-                pass
+                try:
+                    bss_eval(predict_multi_map,y_multi_map,2,dict_idx2spk,eval_data)
+                    SDR_SUM = np.append(SDR_SUM, bss_test.cal('batch_output2/', 2))
+                except:
+                    pass
+            if SDR_SUM[-3:].mean()>8:
+                raw_input()
+
             print 'SDR_aver_now:',SDR_SUM.mean()
 
         print 'SDR_SUM (len:{}) for epoch eval : '.format(SDR_SUM.shape)
