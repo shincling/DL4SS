@@ -105,7 +105,7 @@ AUGMENT_DATA = False
 # set the max epoch of training
 MAX_EPOCH = 250
 # epoch size
-EPOCH_SIZE = 300
+EPOCH_SIZE = 200
 # batch size
 BATCH_SIZE = 16
 # 评估的batch size

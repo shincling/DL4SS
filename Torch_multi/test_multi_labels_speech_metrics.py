@@ -291,6 +291,8 @@ def multi_label_vector(x,dict_name2idx):
         tmp_vector=[0 for _ in range(length)]
         line=[]
         for spk in sample.keys():
+            if spk not in dict_name2idx.keys():
+                continue
             line.append(dict_name2idx[spk])
             for l in line:
                 tmp_vector[l]=1
@@ -338,6 +340,10 @@ def count_multi_acc(y_out_batch,true_spk,alpha=0.5,top_k_num=3):
         y_out_batch=np.int32(y_out_batch>alpha)
         print 'Aver labels to output:',y_out_batch.sum()/float(config.BATCH_SIZE)
         y_out_batch_idx=[np.where(line==1) for line in y_out_batch]
+        for ddd in y_out_batch_idx:
+            if len(ddd[0])==2:
+                print '+1'
+        return None
         recall=0.
         num_all_true=0.
         for pre,true in zip(y_out_batch_idx,true_spk):
@@ -401,9 +407,9 @@ def main():
         para_name='param_speech_123onezeroag4_WSJ0_multilabel_epoch75'
         para_name='param_speech_123onezeroag3_WSJ0_multilabel_epoch40'
         para_name='param_speech_123onezeroag4_WSJ0_multilabel_epoch20'
-        para_name='param_speech_4lstm_multilabelloss30map_epoch440'
+        para_name='param_speech_4lstm_multilabelloss30map_epoch440' #这个是最好的目前
 
-        para_name='param_speech_123onezeroag5dropout_WSJ0_multilabel_epoch20'
+        para_name='param_speech_123onezeroag5dropout_WSJ0_multilabel_epoch20'#这个替代only2
         # mix_speech_class.load_state_dict(torch.load('params/param_speech_multilabel_epoch249'))
         mix_speech_class.load_state_dict(torch.load('params/{}'.format(para_name)))
         print 'Load Success:',para_name
@@ -434,7 +440,7 @@ def main():
         recall_rate_list=np.array([])
         for batch_idx in range(config.EPOCH_SIZE):
             print '*' * 40,epoch_idx,batch_idx,'*'*40
-            train_data_gen=prepare_data('once','train')
+            train_data_gen=prepare_data('once','test')
             train_data=train_data_gen.next()
             mix_speech=mix_speech_class(Variable(torch.from_numpy(train_data['mix_feas'])).cuda())
 
@@ -443,6 +449,8 @@ def main():
             y_out_batch=mix_speech.data.cpu().numpy()
             # acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=-0.1,top_k_num=2)
             # acc1,acc2,all_num_batch,all_line_batch,recall_rate=count_multi_acc(y_out_batch,y_spk,alpha=0.5,top_k_num=0)
+            count_multi_acc(y_out_batch,y_spk,alpha=0.5,top_k_num=0)
+            continue
             hamming_loss, macro_f1, macro_precision, macro_recall, micro_f1, micro_precision, micro_recall=count_multi_acc(y_out_batch,y_spk,alpha=0.5,top_k_num=0)
             hamming_loss_all+=hamming_loss
             micro_f1_all+=micro_f1
